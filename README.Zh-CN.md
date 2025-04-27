@@ -1,26 +1,30 @@
-# Go-Queue - 高性能、可扩展的Go原生队列框架
+<h1 align="center">Go-Queue</h1>
+<p align="center">高性能、可扩展的Go原生队列框架</p>
 
-[English](README.md) | [中文](README.Zh-CN.md)
+<p align="center">
+  <a href="https://pkg.go.dev/github.com/duxweb/go-queue" target="_blank">
+    <img src="https://img.shields.io/github/go-mod/go-version/duxweb/go-queue" alt="Go Version">
+  </a>
+  <a href="https://github.com/duxweb/go-queue/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <img src="https://img.shields.io/badge/coverage-90%25-green" alt="Coverage Status">
+</p>
 
-Go-Queue是一个高性能、可扩展的Go原生队列框架，支持多种存储后端，适用于任务处理、延迟执行等场景。
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.Zh-CN.md">中文</a>
+</p>
 
-## 设计理念
+## 关于
 
-Go-Queue的设计理念是提供一个Go原生的、高性能的队列框架，具有以下特点：
-
-- **存储后端可扩展**：通过统一的接口设计，支持扩展任何类型的数据库作为队列的存储后端，如内存、Redis、SQLite、MySQL、PostgreSQL等
-- **工作器模式**：采用工作器(Worker)模式处理队列任务，支持并发处理
-- **延迟任务支持**：内置支持延迟任务执行
-- **优雅的错误处理**：支持任务重试、超时控制等机制
-- **简单易用的API**：提供直观的API，易于集成和使用
-
-Go-Queue与消息队列（如Kafka）的主要区别在于，Go-Queue更专注于任务处理而非消息传递模型，适合需要精确控制任务执行的业务场景。
+Go-Queue 是一个高性能、可扩展的 Go 原生队列框架，专为高效任务处理而设计。与专注于消息传递的传统消息队列不同，Go-Queue 注重精确的任务执行控制，支持即时和延迟任务、并发处理和完善的错误处理机制。通过灵活的存储后端架构，目前提供了优化的内存实现，并计划支持 Redis、MySQL、PostgreSQL 和 SQLite。
 
 ## 特性
 
 - 支持即时任务和延迟任务
-- 支持任务重试和错误处理
-- 支持并行处理
+- 任务重试和错误处理
+- 并行处理支持
 - 线程安全设计
 - 高性能内存队列实现
 - 可扩展的存储后端
@@ -31,9 +35,7 @@ Go-Queue与消息队列（如Kafka）的主要区别在于，Go-Queue更专注�
 go get github.com/duxweb/go-queue
 ```
 
-## 使用方法
-
-### 快速开始
+## 快速开始
 
 ```go
 package main
@@ -125,6 +127,8 @@ func main() {
 }
 ```
 
+## API参考
+
 ### 内存队列API
 
 #### 创建内存队列
@@ -160,7 +164,9 @@ fmt.Printf("成功的任务数: %v\n", stats["success"])
 fmt.Printf("失败的任务数: %v\n", stats["failed"])
 ```
 
-## 自定义存储后端
+## 扩展框架
+
+### 自定义存储后端
 
 可以通过实现 `queue.QueueService` 接口来创建自定义的存储后端：
 
@@ -181,56 +187,57 @@ type QueueService interface {
 
 ## 测试
 
-### 运行所有测试
-
+运行所有测试:
 ```bash
 go test ./...
 ```
 
-### 运行详细测试
-
+运行详细测试:
 ```bash
 go test -v ./...
 ```
 
-### 运行基准测试
-
+运行基准测试:
 ```bash
 go test -bench=. ./test/benchmark
 ```
 
-### 禁用缓存运行测试
-
+禁用缓存运行测试:
 ```bash
 go test -count=1 ./...
 ```
 
-## 性能数据
+## 性能
 
 在Apple M4处理器上的基准测试结果：
 
-| 操作             | 性能 (ns/op) | 每秒操作数 |
+| 操作            | 性能 (ns/op) | 每秒操作数 |
 |-----------------|------------|-----------|
-| 添加任务(Add)     | 325.6 ns/op | 约3,070,000 |
-| 获取任务(Pop)     | 8.0 ns/op   | 约125,000,000 |
-| 删除任务(Del)     | 180.0 ns/op | 约5,560,000 |
-| 列表任务(List)    | 5.3 ns/op   | 约188,680,000 |
-| 并发操作(Concurrent) | 614.8 ns/op | 约1,630,000 |
+| 添加任务        | 325.6 ns/op | 约3,070,000 |
+| 获取任务        | 8.0 ns/op   | 约125,000,000 |
+| 删除任务        | 180.0 ns/op | 约5,560,000 |
+| 列表任务        | 5.3 ns/op   | 约188,680,000 |
+| 并发操作        | 614.8 ns/op | 约1,630,000 |
 
-> 注：内存队列 Del 操作经过优化，性能提升了约340倍(从~62814 ns/op优化到~180 ns/op)。
+> **注意**：内存队列 Del 操作经过优化，性能提升了约340倍(从~62814 ns/op优化到~180 ns/op)。
 
-## 注意事项
+## 注意事项与限制
 
 - 内存队列不支持持久化，程序重启后队列中的任务将丢失
 - 对于生产环境，建议实现和使用持久化的队列存储后端
 
-## 扩展计划
+## 路线图
 
+计划未来实现:
 - Redis队列实现
 - MySQL队列实现
 - PostgreSQL队列实现
 - SQLite队列实现
 
+## 贡献
+
+欢迎提供贡献、问题和功能请求！请随时查看[问题页面](https://github.com/duxweb/go-queue/issues)。
+
 ## 许可证
 
-本项目采用 MIT 许可证，详情请参阅 LICENSE 文件。
+本项目采用 MIT 许可证 - 详情请参阅 [LICENSE](LICENSE) 文件。

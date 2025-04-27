@@ -1,26 +1,30 @@
-# Go-Queue - High-performance, Extensible Native Go Queue Framework
+<h1 align="center">Go-Queue</h1>
+<p align="center">High-performance, Extensible Native Go Queue Framework</p>
 
-[English](README.md) | [中文](README.Zh-CN.md)
+<p align="center">
+  <a href="https://pkg.go.dev/github.com/duxweb/go-queue" target="_blank">
+    <img src="https://img.shields.io/github/go-mod/go-version/duxweb/go-queue" alt="Go Version">
+  </a>
+  <a href="https://github.com/duxweb/go-queue/blob/main/LICENSE" target="_blank">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  </a>
+  <img src="https://img.shields.io/badge/coverage-90%25-green" alt="Coverage Status">
+</p>
 
-Go-Queue is a high-performance, extensible native Go queue framework that supports multiple storage backends, suitable for task processing, delayed execution, and other scenarios.
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.Zh-CN.md">中文</a>
+</p>
 
-## Design Philosophy
+## About
 
-Go-Queue's design philosophy is to provide a native Go, high-performance queue framework with the following features:
-
-- **Extensible Storage Backends**: Through a unified interface design, it supports extending any type of database as a queue storage backend, such as memory, Redis, SQLite, MySQL, PostgreSQL, etc.
-- **Worker Pattern**: Uses a worker pattern to process queue tasks, supporting concurrent processing
-- **Delayed Task Support**: Built-in support for delayed task execution
-- **Elegant Error Handling**: Supports task retry, timeout control, and other mechanisms
-- **Simple and Easy-to-use API**: Provides intuitive APIs, easy to integrate and use
-
-The main difference between Go-Queue and message queues (like Kafka) is that Go-Queue focuses more on task processing rather than message passing models, suitable for business scenarios that require precise control over task execution.
+Go-Queue is a high-performance, extensible native Go queue framework designed for efficient task processing. Unlike traditional message queues focused on message passing, Go-Queue emphasizes precise task execution control with support for immediate and delayed tasks, concurrent processing, and sophisticated error handling. With a flexible storage backend architecture, it currently offers an optimized memory implementation while planning support for Redis, MySQL, PostgreSQL, and SQLite.
 
 ## Features
 
 - Support for immediate and delayed tasks
-- Support for task retry and error handling
-- Support for parallel processing
+- Task retry and error handling
+- Parallel processing
 - Thread-safe design
 - High-performance memory queue implementation
 - Extensible storage backends
@@ -31,9 +35,7 @@ The main difference between Go-Queue and message queues (like Kafka) is that Go-
 go get github.com/duxweb/go-queue
 ```
 
-## Usage
-
-### Quick Start
+## Quick Start
 
 ```go
 package main
@@ -125,6 +127,8 @@ func main() {
 }
 ```
 
+## API Reference
+
 ### Memory Queue API
 
 #### Create Memory Queue
@@ -160,14 +164,16 @@ fmt.Printf("Successful tasks: %v\n", stats["success"])
 fmt.Printf("Failed tasks: %v\n", stats["failed"])
 ```
 
-## Custom Storage Backend
+## Extending the Framework
+
+### Custom Storage Backend
 
 You can create a custom storage backend by implementing the `queue.QueueService` interface:
 
 ```go
 type QueueService interface {
-	// Get queue data
-	Get(queueName string, num int) []*QueueItem
+	// Pop queue data
+	Pop(queueName string, num int) []*QueueItem
 	// Add queue data
 	Add(queueName string, queue *QueueItem) error
 	// Delete queue data
@@ -181,56 +187,57 @@ type QueueService interface {
 
 ## Testing
 
-### Run All Tests
-
+Run all tests:
 ```bash
 go test ./...
 ```
 
-### Run Verbose Tests
-
+Run verbose tests:
 ```bash
 go test -v ./...
 ```
 
-### Run Benchmark Tests
-
+Run benchmark tests:
 ```bash
 go test -bench=. ./test/benchmark
 ```
 
-### Run Tests with Cache Disabled
-
+Run tests with cache disabled:
 ```bash
 go test -count=1 ./...
 ```
 
-## Performance Data
+## Performance
 
 Benchmark results on Apple M4 processor:
 
 | Operation       | Performance (ns/op) | Operations/second |
 |-----------------|------------|-----------|
-| Add Task (Add)    | 325.6 ns/op | ~3,070,000 |
-| Get Task (Pop)    | 8.0 ns/op   | ~125,000,000 |
-| Delete Task (Del) | 180.0 ns/op | ~5,560,000 |
-| List Tasks (List) | 5.3 ns/op   | ~188,680,000 |
+| Add Task    | 325.6 ns/op | ~3,070,000 |
+| Get Task    | 8.0 ns/op   | ~125,000,000 |
+| Delete Task | 180.0 ns/op | ~5,560,000 |
+| List Tasks  | 5.3 ns/op   | ~188,680,000 |
 | Concurrent Operations | 614.8 ns/op | ~1,630,000 |
 
-> Note: The Del operation of the memory queue has been optimized, with a performance improvement of approximately 340 times (from ~62814 ns/op to ~180 ns/op).
+> **Note**: The Del operation of the memory queue has been optimized, with a performance improvement of approximately 340 times (from ~62814 ns/op to ~180 ns/op).
 
-## Notes
+## Notes and Limitations
 
 - Memory queue does not support persistence, tasks in the queue will be lost after program restart
 - For production environments, it is recommended to implement and use a persistent queue storage backend
 
-## Extension Plans
+## Roadmap
 
+Future implementations planned:
 - Redis queue implementation
 - MySQL queue implementation
 - PostgreSQL queue implementation
 - SQLite queue implementation
 
+## Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/duxweb/go-queue/issues).
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
