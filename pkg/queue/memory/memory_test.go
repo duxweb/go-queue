@@ -59,7 +59,7 @@ func TestMemoryQueue_Add(t *testing.T) {
 	}
 }
 
-func TestMemoryQueue_Get(t *testing.T) {
+func TestMemoryQueue_Pop(t *testing.T) {
 	q := NewMemoryQueue()
 	queueName := "test-queue"
 

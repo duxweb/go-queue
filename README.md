@@ -214,12 +214,11 @@ Benchmark results on Apple M4 processor:
 | Operation       | Performance (ns/op) | Operations/second |
 |-----------------|------------|-----------|
 | Add Task    | 325.6 ns/op | ~3,070,000 |
-| Get Task    | 8.0 ns/op   | ~125,000,000 |
+| Pop Task    | 8.0 ns/op   | ~125,000,000 |
 | Delete Task | 180.0 ns/op | ~5,560,000 |
 | List Tasks  | 5.3 ns/op   | ~188,680,000 |
 | Concurrent Operations | 614.8 ns/op | ~1,630,000 |
 
-> **Note**: The Del operation of the memory queue has been optimized, with a performance improvement of approximately 340 times (from ~62814 ns/op to ~180 ns/op).
 
 ## Notes and Limitations
 

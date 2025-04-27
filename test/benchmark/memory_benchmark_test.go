@@ -28,7 +28,7 @@ func BenchmarkMemoryQueue_Add(b *testing.B) {
 	}
 }
 
-func BenchmarkMemoryQueue_Get(b *testing.B) {
+func BenchmarkMemoryQueue_Pop(b *testing.B) {
 	q := memory.NewMemoryQueue()
 	queueName := "benchmark-queue"
 

@@ -172,8 +172,8 @@ fmt.Printf("失败的任务数: %v\n", stats["failed"])
 
 ```go
 type QueueService interface {
-	// 获取队列数据
-	Get(queueName string, num int) []*QueueItem
+	// 弹出队列数据
+	Pop(queueName string, num int) []*QueueItem
 	// 添加队列数据
 	Add(queueName string, queue *QueueItem) error
 	// 删除队列数据
@@ -218,8 +218,6 @@ go test -count=1 ./...
 | 删除任务        | 180.0 ns/op | 约5,560,000 |
 | 列表任务        | 5.3 ns/op   | 约188,680,000 |
 | 并发操作        | 614.8 ns/op | 约1,630,000 |
-
-> **注意**：内存队列 Del 操作经过优化，性能提升了约340倍(从~62814 ns/op优化到~180 ns/op)。
 
 ## 注意事项与限制
 
