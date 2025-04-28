@@ -221,7 +221,7 @@ func (w *Worker) handleTaskFailure(item *QueueItem, err error) {
 	item.Retried++
 	atomic.AddInt64(&w.totalRetry, 1)
 	// 添加重试延迟
-	item.CreatedAt = time.Now().Add(w.retryDelay)
+	item.RunAt = time.Now().Add(w.retryDelay)
 	w.Driver.Add(w.Name, item)
 }
 

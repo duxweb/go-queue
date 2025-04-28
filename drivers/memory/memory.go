@@ -40,7 +40,7 @@ func (m *MemoryQueue) Pop(workerName string, num int) []*queue.QueueItem {
 		num = len(q)
 	}
 
-	// 获取可执行的任务（当前时间大于或等于队列项的创建时间）
+	// 获取可执行的任务（当前时间大于或等于队列项的计划运行时间）
 	var result []*queue.QueueItem
 	now := time.Now()
 
@@ -53,7 +53,7 @@ func (m *MemoryQueue) Pop(workerName string, num int) []*queue.QueueItem {
 	// 遍历队列中的所有项目
 	for _, item := range q {
 		// 如果可以执行且结果数量未达到要求，则添加到结果中
-		if (now.After(item.CreatedAt) || now.Equal(item.CreatedAt)) && len(result) < num {
+		if (now.After(item.RunAt) || now.Equal(item.RunAt)) && len(result) < num {
 			result = append(result, item)
 			// 从索引映射中删除
 			if idx, exists := m.indices[workerName]; exists {

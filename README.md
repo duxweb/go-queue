@@ -12,6 +12,9 @@ A high-performance, extensible queue library for Go, supporting multiple queue d
 - **Multiple Queue Drivers**: Built-in memory queue driver, extensible to add other drivers
 - **多种队列驱动**: 内置内存队列驱动，可扩展添加其他驱动
 
+- **Driver Extensibility**: Easily implement your own queue driver by implementing the QueueDriver interface
+- **驱动可扩展性**: 通过实现 QueueDriver 接口，轻松创建自定义队列驱动
+
 - **Concurrency Control**: Configure the number of workers for each queue
 - **并发控制**: 为每个队列配置工作线程数量
 
@@ -43,6 +46,8 @@ go get -u github.com/duxweb/go-queue
 
 - Memory: 内存队列 (Memory Queue)
 - SQLite: 基于SQLite的持久化队列，纯Go实现无CGO依赖 (SQLite-based persistent queue, pure Go implementation without CGO dependency)
+- Redis: 基于Redis的分布式队列 (Redis-based distributed queue)
+- Custom: 自定义队列驱动，实现 QueueDriver 接口即可 (Custom queue driver, just implement the QueueDriver interface)
 
 ### Memory Queue / 内存队列
 
@@ -73,6 +78,109 @@ options := &sqlite.SQLiteOptions{
 }
 sqliteQueue, err := sqlite.New(options)
 queueService := queue.New(sqliteQueue)
+```
+
+### Redis Queue / Redis队列
+
+Redis队列是基于Redis实现的分布式队列，适合多实例部署的场景。
+
+```go
+import (
+    "github.com/duxweb/go-queue"
+    "github.com/duxweb/go-queue/drivers/redis"
+    goredis "github.com/redis/go-redis/v9"
+)
+
+// 方法1: 使用配置创建 Redis 队列实例
+options := &redis.Options{
+    Addr:     "localhost:6379", // Redis 服务器地址
+    Password: "",               // Redis 密码
+    DB:       0,                // 使用的数据库
+    Timeout:  time.Second * 5,  // 操作超时
+}
+redisQueue, err := redis.New(options)
+queueService := queue.New(redisQueue)
+
+// 方法2: 使用现有的 Redis 客户端
+client := goredis.NewClient(&goredis.Options{
+    Addr:     "localhost:6379",
+    Password: "",
+    DB:       0,
+})
+options := redis.WithClient(client)
+redisQueue, err := redis.New(options)
+queueService := queue.New(redisQueue)
+```
+
+### Custom Queue Driver / 自定义队列驱动
+
+您可以通过实现 QueueDriver 接口来创建自己的队列驱动。以下是自定义队列驱动的基本实现示例：
+
+```go
+import (
+    "github.com/duxweb/go-queue"
+)
+
+// 自定义队列驱动
+type MyCustomQueue struct {
+    // 自定义字段
+}
+
+// 创建新的自定义队列
+func NewCustomQueue() *MyCustomQueue {
+    return &MyCustomQueue{
+        // 初始化自定义字段
+    }
+}
+
+// 实现 QueueDriver 接口方法
+
+// Pop 从队列中弹出数据
+func (q *MyCustomQueue) Pop(workerName string, num int) []*queue.QueueItem {
+    // 实现从自定义存储中获取队列数据的逻辑
+    return items
+}
+
+// Add 添加数据到队列
+func (q *MyCustomQueue) Add(workerName string, item *queue.QueueItem) error {
+    // 实现添加队列数据到自定义存储的逻辑
+    return nil
+}
+
+// Del 从队列中删除数据
+func (q *MyCustomQueue) Del(workerName string, id string) error {
+    // 实现从自定义存储中删除队列数据的逻辑
+    return nil
+}
+
+// Count 获取队列数据数量
+func (q *MyCustomQueue) Count(workerName string) int {
+    // 实现获取自定义存储中队列数据数量的逻辑
+    return count
+}
+
+// List 获取队列列表
+func (q *MyCustomQueue) List(workerName string, page int, limit int) []*queue.QueueItem {
+    // 实现获取自定义存储中队列数据列表的逻辑
+    return items
+}
+
+// Close 关闭队列
+func (q *MyCustomQueue) Close() error {
+    // 实现关闭自定义队列的逻辑
+    return nil
+}
+
+// 注册并使用自定义队列驱动
+func main() {
+    // 创建自定义队列驱动
+    customQueue := NewCustomQueue()
+
+    // 创建队列服务并注册自定义驱动
+    queueService := queue.New(customQueue)
+
+    // 使用队列服务...
+}
 ```
 
 ## Quick Start / 快速开始
@@ -228,33 +336,50 @@ Performance benchmark results for memory queue and SQLite queue drivers (tested 
 | List / 列表 | 32,601     | 36,336 ns/op      | 17,016 B/op         | 548 allocs/op           |
 | Count / 计数 | 26,211     | 42,684 ns/op      | 728 B/op            | 21 allocs/op            |
 
+### Redis Queue Performance / Redis 队列性能
+
+| Operation / 操作 | Iterations / 迭代次数 | Time per Operation / 每次操作时间 | Memory per Operation / 每次操作内存使用 | Allocations per Operation / 每次操作内存分配次数 |
+|-----------|------------|-------------------|---------------------|--------------------------|
+| Add / 添加 | 17,394     | 71,413 ns/op      | 1,910 B/op          | 39 allocs/op            |
+| Pop / 弹出 | 6,097      | 194,806 ns/op     | 2,832 B/op          | 65 allocs/op            |
+| Delete / 删除 | 18,559    | 66,018 ns/op      | 1,217 B/op          | 29 allocs/op            |
+| List / 列表 | 5,454      | 218,728 ns/op     | 44,873 B/op         | 1,182 allocs/op         |
+| Count / 计数 | 19,345    | 61,238 ns/op      | 604 B/op            | 13 allocs/op            |
+| Batch Add / 批量添加 | 17,810 | 71,362 ns/op      | 1,952 B/op          | 39 allocs/op            |
+
 ### Performance Comparison / 性能对比
 
-| Operation / 操作 | Memory Queue / 内存队列 | SQLite Queue / SQLite队列 | Memory:SQLite Ratio / 速度比例 |
-|-----------|-------------|------------|----------------------------------|
-| Add / 添加 | 345.9 ns/op  | 228,815 ns/op | 1 : 661                   |
-| Pop / 弹出 | 29,372 ns/op | 245,389 ns/op | 1 : 8.4                     |
-| Delete / 删除 | 190.6 ns/op  | 197,711 ns/op | 1 : 1,037                  |
-| List / 列表 | 5.338 ns/op  | 36,336 ns/op  | 1 : 6,807                   |
-| Count / 计数 | 4.438 ns/op  | 42,684 ns/op  | 1 : 9,618                   |
+| Operation / 操作 | Memory Queue / 内存队列 | SQLite Queue / SQLite队列 | Redis Queue / Redis队列 | Memory:SQLite:Redis Ratio / 速度比例 |
+|-----------|-------------|------------|------------|--------------------------------|
+| Add / 添加 | 345.9 ns/op  | 228,815 ns/op | 71,413 ns/op | 1 : 661 : 207              |
+| Pop / 弹出 | 29,372 ns/op | 245,389 ns/op | 194,806 ns/op | 1 : 8.4 : 6.6              |
+| Delete / 删除 | 190.6 ns/op  | 197,711 ns/op | 66,018 ns/op | 1 : 1,037 : 346            |
+| List / 列表 | 5.338 ns/op  | 36,336 ns/op  | 218,728 ns/op | 1 : 6,807 : 40,976          |
+| Count / 计数 | 4.438 ns/op  | 42,684 ns/op  | 61,238 ns/op | 1 : 9,618 : 13,799          |
 
 These benchmarks show that:
 这些基准测试结果表明：
 
-- Memory queue is significantly faster than SQLite queue for all operations
-- 内存队列在所有操作上都明显快于SQLite队列
+- Memory queue is significantly faster than both SQLite and Redis queues for all operations
+- 内存队列在所有操作上都明显快于SQLite和Redis队列
 
-- Memory queue operations are mostly sub-microsecond, while SQLite operations are in the microsecond range
-- 内存队列操作大多是亚微秒级的，而SQLite操作则是微秒级的
+- Memory queue operations are mostly sub-microsecond, while SQLite and Redis operations are in the microsecond range
+- 内存队列操作大多是亚微秒级的，而SQLite和Redis操作则是微秒级的
+
+- Redis queue generally outperforms SQLite for Add and Delete operations, but is slower for List operations
+- Redis队列在添加和删除操作上通常比SQLite队列性能更好，但在列表操作上较慢
 
 - For high-performance needs with no persistence requirement, Memory queue is the best choice
 - 对于没有持久化需求的高性能场景，内存队列是最佳选择
 
-- For persistence needs, SQLite queue offers a good balance of performance and reliability
-- 对于需要持久化的场景，SQLite队列提供了性能和可靠性的良好平衡
+- For persistence needs with single process, SQLite queue offers a good balance of performance and reliability
+- 对于单进程下需要持久化的场景，SQLite队列提供了性能和可靠性的良好平衡
 
 - If you need a pure Go implementation without CGO, SQLite queue (using modernc.org/sqlite) is a great option
 - 如果需要不依赖CGO的纯Go实现，SQLite队列（使用modernc.org/sqlite）是一个很好的选择
+
+- For distributed systems requiring shared queue access, Redis queue is recommended despite being slower for some operations
+- 对于需要共享队列访问的分布式系统，尽管Redis队列在某些操作上较慢，但仍推荐使用
 
 Run your own benchmarks with:
 运行自己的基准测试：

@@ -81,7 +81,8 @@ func (q *Service) AddDelay(workerName string, config *QueueDelayConfig) (string,
 		WorkerName:  workerName,
 		HandlerName: config.HandlerName,
 		Params:      config.Params,
-		CreatedAt:   time.Now().Add(config.Delay),
+		CreatedAt:   time.Now(),
+		RunAt:       time.Now().Add(config.Delay),
 		Retried:     0,
 	})
 

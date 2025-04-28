@@ -25,12 +25,14 @@ func TestMemoryQueueBasicOperations(t *testing.T) {
 	assert.Empty(t, memQueue.List(workerName, 1, 10), "列出空队列应该返回空列表")
 
 	// 测试添加项目
+	now := time.Now()
 	testItem := &queue.QueueItem{
 		ID:          "test-id",
 		WorkerName:  workerName,
 		HandlerName: "test-handler",
 		Params:      []byte(`{"key":"value"}`),
-		CreatedAt:   time.Now(),
+		CreatedAt:   now,
+		RunAt:       now,
 	}
 
 	err := memQueue.Add(workerName, testItem)
@@ -56,14 +58,18 @@ func TestMemoryQueueDelayedItems(t *testing.T) {
 	memQueue := New()
 	workerName := "test-queue"
 
+	// 当前时间
+	now := time.Now()
+
 	// 添加一个延迟项目（未来时间）
-	futureTime := time.Now().Add(time.Second * 1)
+	futureTime := now.Add(time.Second * 2)
 	delayedItem := &queue.QueueItem{
 		ID:          "delayed-id",
 		WorkerName:  workerName,
 		HandlerName: "test-handler",
 		Params:      []byte(`{"key":"value"}`),
-		CreatedAt:   futureTime,
+		CreatedAt:   now,
+		RunAt:       futureTime,
 	}
 
 	err := memQueue.Add(workerName, delayedItem)
@@ -76,7 +82,7 @@ func TestMemoryQueueDelayedItems(t *testing.T) {
 	assert.Equal(t, 1, memQueue.Count(workerName), "延迟的项目应该仍在队列中")
 
 	// 等待时间到达，再次尝试弹出
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second * 3)
 	poppedItems := memQueue.Pop(workerName, 10)
 	assert.Len(t, poppedItems, 1, "延迟时间到达后应该能弹出项目")
 	assert.Equal(t, delayedItem.ID, poppedItems[0].ID, "弹出的项目ID应该匹配")
@@ -88,12 +94,14 @@ func TestMemoryQueueDelete(t *testing.T) {
 	workerName := "test-queue"
 
 	// 添加项目
+	now := time.Now()
 	testItem := &queue.QueueItem{
 		ID:          "test-id",
 		WorkerName:  workerName,
 		HandlerName: "test-handler",
 		Params:      []byte(`{"key":"value"}`),
-		CreatedAt:   time.Now(),
+		CreatedAt:   now,
+		RunAt:       now,
 	}
 
 	err := memQueue.Add(workerName, testItem)
@@ -117,12 +125,14 @@ func TestMemoryQueuePagination(t *testing.T) {
 
 	// 添加多个项目
 	for i := 0; i < 20; i++ {
+		now := time.Now().Add(time.Duration(i) * time.Millisecond)
 		item := &queue.QueueItem{
-			ID:          "item-" + time.Now().Add(time.Duration(i)*time.Millisecond).Format("150405.000"),
+			ID:          "item-" + now.Format("150405.000"),
 			WorkerName:  workerName,
 			HandlerName: "test-handler",
 			Params:      []byte(`{"key":"value"}`),
-			CreatedAt:   time.Now(),
+			CreatedAt:   now,
+			RunAt:       now,
 		}
 		memQueue.Add(workerName, item)
 	}
