@@ -114,9 +114,9 @@ func TestServiceRegisterWorker(t *testing.T) {
 
 	// 注册工作器
 	err := service.RegisterWorker("test-worker", &WorkerConfig{
-		ServiceName: "mock-driver",
-		Num:         1,
-		Interval:    time.Millisecond * 100,
+		DeviceName: "mock-driver",
+		Num:        1,
+		Interval:   time.Millisecond * 100,
 	})
 
 	assert.NoError(t, err, "注册工作器应该成功")
@@ -126,7 +126,7 @@ func TestServiceRegisterWorker(t *testing.T) {
 
 	// 测试注册不存在的驱动
 	err = service.RegisterWorker("invalid-worker", &WorkerConfig{
-		ServiceName: "non-existent-driver",
+		DeviceName: "non-existent-driver",
 	})
 	assert.Error(t, err, "使用不存在的驱动注册工作器应该失败")
 }
@@ -148,7 +148,7 @@ func TestServiceRegisterHandler(t *testing.T) {
 }
 
 // 测试获取工作池名称
-func TestServiceNames(t *testing.T) {
+func TestDeviceNames(t *testing.T) {
 	service, _ := New(&Config{Context: context.Background()})
 
 	// 注册模拟驱动
@@ -157,13 +157,13 @@ func TestServiceNames(t *testing.T) {
 
 	// 注册工作器
 	service.RegisterWorker("worker1", &WorkerConfig{
-		ServiceName: "mock-driver",
-		Num:         1,
+		DeviceName: "mock-driver",
+		Num:        1,
 	})
 
 	service.RegisterWorker("worker2", &WorkerConfig{
-		ServiceName: "mock-driver",
-		Num:         1,
+		DeviceName: "mock-driver",
+		Num:        1,
 	})
 
 	// 获取工作池名称
@@ -184,8 +184,8 @@ func TestServiceGetWorker(t *testing.T) {
 
 	// 注册工作器
 	service.RegisterWorker("test-worker", &WorkerConfig{
-		ServiceName: "mock-driver",
-		Num:         1,
+		DeviceName: "mock-driver",
+		Num:        1,
 	})
 
 	// 获取工作器

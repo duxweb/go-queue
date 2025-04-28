@@ -35,12 +35,12 @@ func main() {
 
 	// 创建高优先级工作队列配置
 	highPriorityConfig := &goqueue.WorkerConfig{
-		ServiceName: "high-priority",
-		Num:         5,                // 并发工作数量 - 高优先级队列分配更多资源
-		Interval:    time.Second * 1,  // 轮询间隔 - 高优先级队列更频繁地检查
-		Retry:       3,                // 重试次数
-		RetryDelay:  time.Second * 2,  // 重试间隔
-		Timeout:     time.Second * 30, // 任务超时时间
+		DeviceName: "high-priority",
+		Num:        5,                // 并发工作数量 - 高优先级队列分配更多资源
+		Interval:   time.Second * 1,  // 轮询间隔 - 高优先级队列更频繁地检查
+		Retry:      3,                // 重试次数
+		RetryDelay: time.Second * 2,  // 重试间隔
+		Timeout:    time.Second * 30, // 任务超时时间
 		SuccessFunc: func(item *goqueue.QueueItem) {
 			fmt.Printf("[高优先级] 任务成功执行: %s\n", string(item.Params))
 		},
@@ -48,12 +48,12 @@ func main() {
 
 	// 创建低优先级工作队列配置
 	lowPriorityConfig := &goqueue.WorkerConfig{
-		ServiceName: "low-priority",
-		Num:         2,                // 并发工作数量 - 低优先级队列分配较少资源
-		Interval:    time.Second * 3,  // 轮询间隔 - 低优先级队列检查频率较低
-		Retry:       2,                // 重试次数
-		RetryDelay:  time.Second * 5,  // 重试间隔
-		Timeout:     time.Second * 60, // 任务超时时间
+		DeviceName: "low-priority",
+		Num:        2,                // 并发工作数量 - 低优先级队列分配较少资源
+		Interval:   time.Second * 3,  // 轮询间隔 - 低优先级队列检查频率较低
+		Retry:      2,                // 重试次数
+		RetryDelay: time.Second * 5,  // 重试间隔
+		Timeout:    time.Second * 60, // 任务超时时间
 		SuccessFunc: func(item *goqueue.QueueItem) {
 			fmt.Printf("[低优先级] 任务成功执行: %s\n", string(item.Params))
 		},

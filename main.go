@@ -34,8 +34,8 @@ func New(config *Config) (*Service, error) {
 
 // RegisterDriver 注册队列驱动
 // RegisterDriver register queue driver
-func (s *Service) RegisterDriver(serviceName string, driver QueueDriver) {
-	s.drivers[serviceName] = driver
+func (s *Service) RegisterDriver(deviceName string, driver QueueDriver) {
+	s.drivers[deviceName] = driver
 }
 
 // RegisterWorker 注册工作队列
@@ -43,11 +43,11 @@ func (s *Service) RegisterDriver(serviceName string, driver QueueDriver) {
 func (q *Service) RegisterWorker(workerName string, config *WorkerConfig) error {
 	worker := NewWorker(config)
 
-	if _, ok := q.drivers[config.ServiceName]; !ok {
+	if _, ok := q.drivers[config.DeviceName]; !ok {
 		return errors.New("queue driver not found")
 	}
 	worker.Name = workerName
-	worker.Driver = q.drivers[config.ServiceName]
+	worker.Driver = q.drivers[config.DeviceName]
 	q.workers[workerName] = worker
 	return nil
 }

@@ -33,12 +33,12 @@ func main() {
 
 	// 创建工作队列配置
 	workerConfig := &goqueue.WorkerConfig{
-		ServiceName: "default",
-		Num:         5,               // 并发工作数量
-		Interval:    time.Second * 1, // 轮询间隔
-		Retry:       3,               // 重试次数
-		RetryDelay:  time.Second * 5, // 重试间隔
-		Timeout:     time.Minute,     // 任务超时时间
+		DeviceName: "default",
+		Num:        5,               // 并发工作数量
+		Interval:   time.Second * 1, // 轮询间隔
+		Retry:      3,               // 重试次数
+		RetryDelay: time.Second * 5, // 重试间隔
+		Timeout:    time.Minute,     // 任务超时时间
 	}
 
 	// 注册工作器

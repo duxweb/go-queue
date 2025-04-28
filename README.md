@@ -79,7 +79,7 @@ func main() {
     // Configure worker
     // 配置工作器
     workerConfig := &goqueue.WorkerConfig{
-        ServiceName: "default",
+        DeviceName: "default",
         Num:         5,                // Concurrent workers / 并发工作数量
         Interval:    time.Second * 1,  // Polling interval / 轮询间隔
         Retry:       3,                // Retry attempts / 重试次数
@@ -145,7 +145,7 @@ Configure retry behavior:
 
 ```go
 workerConfig := &goqueue.WorkerConfig{
-    ServiceName: "default",
+    DeviceName: "default",
     Retry:       3,                // Maximum retry attempts / 最大重试次数
     RetryDelay:  time.Second * 2,  // Delay between retries / 重试间隔
 }

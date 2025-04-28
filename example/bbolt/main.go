@@ -43,12 +43,12 @@ func main() {
 
 	// 创建工作队列配置
 	workerConfig := &goqueue.WorkerConfig{
-		ServiceName: "bbolt-queue",
-		Num:         3,                // 并发工作数量
-		Interval:    time.Second * 1,  // 轮询间隔
-		Retry:       2,                // 重试次数
-		RetryDelay:  time.Second * 2,  // 重试间隔
-		Timeout:     time.Second * 30, // 任务超时时间
+		DeviceName: "bbolt-queue",
+		Num:        3,                // 并发工作数量
+		Interval:   time.Second * 1,  // 轮询间隔
+		Retry:      2,                // 重试次数
+		RetryDelay: time.Second * 2,  // 重试间隔
+		Timeout:    time.Second * 30, // 任务超时时间
 		SuccessFunc: func(item *goqueue.QueueItem) {
 			fmt.Printf("任务执行成功: %s, 已重试: %d次\n", item.ID, item.Retried)
 		},

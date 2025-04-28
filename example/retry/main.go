@@ -35,12 +35,12 @@ func main() {
 
 	// 创建工作队列配置
 	workerConfig := &goqueue.WorkerConfig{
-		ServiceName: "default",
-		Num:         2,               // 并发工作数量
-		Interval:    time.Second * 1, // 轮询间隔
-		Retry:       3,               // 重试次数
-		RetryDelay:  time.Second * 2, // 重试间隔
-		Timeout:     time.Minute,     // 任务超时时间
+		DeviceName: "default",
+		Num:        2,               // 并发工作数量
+		Interval:   time.Second * 1, // 轮询间隔
+		Retry:      3,               // 重试次数
+		RetryDelay: time.Second * 2, // 重试间隔
+		Timeout:    time.Minute,     // 任务超时时间
 		// 任务成功回调
 		SuccessFunc: func(item *goqueue.QueueItem) {
 			fmt.Printf("任务成功执行: %s, 重试次数: %d\n", string(item.Params), item.Retried)

@@ -43,7 +43,7 @@ func (s WorkerStatus) String() string {
 // WorkerConfig 工作线程配置
 // WorkerConfig worker configuration
 type WorkerConfig struct {
-	ServiceName string
+	DeviceName  string
 	Num         int
 	Interval    time.Duration
 	Retry       int
@@ -86,7 +86,7 @@ type Worker struct {
 func NewWorker(config *WorkerConfig) *Worker {
 
 	return &Worker{
-		Name:       config.ServiceName,
+		Name:       config.DeviceName,
 		num:        lo.Ternary(config.Num == 0, 1, config.Num),
 		interval:   lo.Ternary(config.Interval == 0, time.Second*10, config.Interval),
 		retry:      lo.Ternary(config.Retry == 0, 3, config.Retry),
