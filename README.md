@@ -39,6 +39,42 @@ A high-performance, extensible queue library for Go, supporting multiple queue d
 go get -u github.com/duxweb/go-queue
 ```
 
+## Drivers / 驱动
+
+- Memory: 内存队列 (Memory Queue)
+- SQLite: 基于SQLite的持久化队列，纯Go实现无CGO依赖 (SQLite-based persistent queue, pure Go implementation without CGO dependency)
+
+### Memory Queue / 内存队列
+
+```go
+import (
+    "github.com/duxweb/go-queue"
+    "github.com/duxweb/go-queue/drivers/memory"
+)
+
+// Create memory queue instance
+memQueue := memory.New()
+queueService := queue.New(memQueue)
+```
+
+### SQLite Queue / SQLite队列
+
+SQLite队列是基于modernc.org/sqlite实现的持久化队列，是纯Go实现，不需要CGO支持，可以很方便地进行交叉编译。
+
+```go
+import (
+    "github.com/duxweb/go-queue"
+    "github.com/duxweb/go-queue/drivers/sqlite"
+)
+
+// Create SQLite queue instance
+options := &sqlite.SQLiteOptions{
+    DBPath: "queue.db", // 数据库文件路径
+}
+sqliteQueue, err := sqlite.New(options)
+queueService := queue.New(sqliteQueue)
+```
+
 ## Quick Start / 快速开始
 
 ```go
@@ -169,8 +205,8 @@ workerConfig := &goqueue.WorkerConfig{
 
 ## Benchmark Results / 性能基准测试结果
 
-Performance benchmark results for memory queue and BBolt queue drivers (tested on Apple M4):
-内存队列和 BBolt 队列驱动的性能基准测试结果（在 Apple M4 上测试）：
+Performance benchmark results for memory queue and SQLite queue drivers (tested on Apple M4):
+内存队列和 SQLite 队列驱动的性能基准测试结果（在 Apple M4 上测试）：
 
 ### Memory Queue Performance / 内存队列性能
 
@@ -182,42 +218,43 @@ Performance benchmark results for memory queue and BBolt queue drivers (tested o
 | List / 列表 | 224,417,496| 5.308 ns/op       | 0 B/op              | 0 allocs/op             |
 | Count / 计数 | 262,194,860| 4.578 ns/op      | 0 B/op              | 0 allocs/op             |
 
-### BBolt Queue Performance / BBolt 队列性能
+### SQLite Queue Performance / SQLite 队列性能
 
 | Operation / 操作 | Iterations / 迭代次数 | Time per Operation / 每次操作时间 | Memory per Operation / 每次操作内存使用 | Allocations per Operation / 每次操作内存分配次数 |
 |-----------|------------|-------------------|---------------------|--------------------------|
-| Add / 添加 | 148        | 8,043,025 ns/op   | 28,349 B/op         | 61 allocs/op            |
-| Pop / 弹出 | 147        | 8,057,802 ns/op   | 23,654 B/op         | 67 allocs/op            |
-| Delete / 删除 | 148        | 7,979,694 ns/op   | 21,414 B/op         | 54 allocs/op            |
-| List / 列表 | 82,171     | 13,347 ns/op      | 5,010 B/op          | 105 allocs/op           |
-| Count / 计数 | -          | -                 | -                   | -                       |
+| Add / 添加 | 4,821      | 228,815 ns/op     | 1,610 B/op          | 33 allocs/op            |
+| Pop / 弹出 | 5,455      | 245,389 ns/op     | 4,044 B/op          | 111 allocs/op           |
+| Delete / 删除 | 5,553      | 197,711 ns/op     | 1,008 B/op          | 22 allocs/op            |
+| List / 列表 | 32,601     | 36,336 ns/op      | 17,016 B/op         | 548 allocs/op           |
+| Count / 计数 | 26,211     | 42,684 ns/op      | 728 B/op            | 21 allocs/op            |
 
 ### Performance Comparison / 性能对比
 
-| Operation / 操作 | Memory Queue / 内存队列 | BBolt Queue / BBolt 队列 | Memory vs BBolt (X times faster) / 内存队列比 BBolt 队列快（倍数） |
+| Operation / 操作 | Memory Queue / 内存队列 | SQLite Queue / SQLite队列 | Memory:SQLite Ratio / 速度比例 |
 |-----------|-------------|------------|----------------------------------|
-| Add / 添加 | 367.4 ns/op  | 8,043,025 ns/op | ~21,892x / ~21,892倍                  |
-| Pop / 弹出 | 24,391 ns/op | 8,057,802 ns/op | ~330x / ~330倍                     |
-| Delete / 删除 | 214.6 ns/op  | 7,979,694 ns/op | ~37,184x / ~37,184倍                  |
-| List / 列表 | 5.308 ns/op  | 13,347 ns/op    | ~2,514x / ~2,514倍                   |
+| Add / 添加 | 345.9 ns/op  | 228,815 ns/op | 1 : 661                   |
+| Pop / 弹出 | 29,372 ns/op | 245,389 ns/op | 1 : 8.4                     |
+| Delete / 删除 | 190.6 ns/op  | 197,711 ns/op | 1 : 1,037                  |
+| List / 列表 | 5.338 ns/op  | 36,336 ns/op  | 1 : 6,807                   |
+| Count / 计数 | 4.438 ns/op  | 42,684 ns/op  | 1 : 9,618                   |
 
 These benchmarks show that:
 这些基准测试结果表明：
 
-- Memory queue is significantly faster than BBolt queue for all operations
-- 内存队列在所有操作上都明显快于 BBolt 队列
+- Memory queue is significantly faster than SQLite queue for all operations
+- 内存队列在所有操作上都明显快于SQLite队列
 
-- Memory queue operations are mostly sub-microsecond, while BBolt operations are in the millisecond range
-- 内存队列操作大多是亚微秒级的，而 BBolt 操作则是毫秒级的
+- Memory queue operations are mostly sub-microsecond, while SQLite operations are in the microsecond range
+- 内存队列操作大多是亚微秒级的，而SQLite操作则是微秒级的
 
-- The memory queue has much lower memory allocation overhead
-- 内存队列有更低的内存分配开销
+- For high-performance needs with no persistence requirement, Memory queue is the best choice
+- 对于没有持久化需求的高性能场景，内存队列是最佳选择
 
-- BBolt queue provides persistence at the cost of performance
-- BBolt 队列以性能为代价提供了数据持久化
+- For persistence needs, SQLite queue offers a good balance of performance and reliability
+- 对于需要持久化的场景，SQLite队列提供了性能和可靠性的良好平衡
 
-- Choose between them based on your need for speed vs persistence
-- 根据你对速度与持久性的需求来选择合适的队列驱动
+- If you need a pure Go implementation without CGO, SQLite queue (using modernc.org/sqlite) is a great option
+- 如果需要不依赖CGO的纯Go实现，SQLite队列（使用modernc.org/sqlite）是一个很好的选择
 
 Run your own benchmarks with:
 运行自己的基准测试：
@@ -233,6 +270,7 @@ Check the `example` directory for complete, runnable examples:
 查看 `example` 目录以获取完整的、可运行的示例：
 
 - `basic/` - Basic queue operations / 基本队列操作
+- `drivers/` - Driver queue operations / 驱动队列操作
 - `retry/` - Task retry mechanism / 任务重试机制
 - `multi_queues/` - Multiple parallel queues / 多个并行队列
 
