@@ -5,15 +5,14 @@ import (
 	"errors"
 	"time"
 
-	"github.com/duxweb/go-queue/internal/queue"
-	"github.com/duxweb/go-queue/internal/worker"
+	"github.com/google/uuid"
 )
 
 // Service 队列服务实现
 type Service struct {
-	services map[string]queue.QueueService
-	workers  map[string]worker.Worker
-	handlers map[string]worker.HandlerFunc
+	drivers  map[string]QueueDriver
+	workers  map[string]*Worker
+	handlers map[string]HandlerFunc
 	ctx      context.Context
 }
 
@@ -26,35 +25,43 @@ type Config struct {
 // New create a new service instance
 func New(config *Config) (*Service, error) {
 	return &Service{
-		services: make(map[string]queue.QueueService),
-		workers:  make(map[string]worker.Worker),
-		handlers: make(map[string]worker.HandlerFunc),
+		drivers:  make(map[string]QueueDriver),
+		workers:  make(map[string]*Worker),
+		handlers: make(map[string]HandlerFunc),
 		ctx:      config.Context,
 	}, nil
 }
 
-// RegisterService 注册队列服务
-// RegisterService register queue service
-func (s *Service) RegisterService(serviceName string, driver queue.QueueService) {
-	s.services[serviceName] = driver
+// RegisterDriver 注册队列驱动
+// RegisterDriver register queue driver
+func (s *Service) RegisterDriver(serviceName string, driver QueueDriver) {
+	s.drivers[serviceName] = driver
 }
 
 // RegisterWorker 注册工作队列
 // RegisterWorker register worker
-func (q *Service) RegisterWorker(queueName string, worker worker.Worker) {
-	q.workers[queueName] = worker
+func (q *Service) RegisterWorker(workerName string, config *WorkerConfig) error {
+	worker := NewWorker(config)
+
+	if _, ok := q.drivers[config.ServiceName]; !ok {
+		return errors.New("queue driver not found")
+	}
+	worker.Name = workerName
+	worker.Driver = q.drivers[config.ServiceName]
+	q.workers[workerName] = worker
+	return nil
 }
 
 // RegisterHandler 注册处理器
 // RegisterHandler register handler
-func (q *Service) RegisterHandler(handlerName string, handler worker.HandlerFunc) {
+func (q *Service) RegisterHandler(handlerName string, handler HandlerFunc) {
 	q.handlers[handlerName] = handler
 }
 
 // Add 添加任务
 // Add task
-func (q *Service) Add(queueName string, config *queue.QueueConfig) error {
-	return q.AddDelay(queueName, &queue.QueueDelayConfig{
+func (q *Service) Add(workerName string, config *QueueConfig) (string, error) {
+	return q.AddDelay(workerName, &QueueDelayConfig{
 		QueueConfig: *config,
 		Delay:       0,
 	})
@@ -62,19 +69,27 @@ func (q *Service) Add(queueName string, config *queue.QueueConfig) error {
 
 // AddDelay 添加延迟任务
 // AddDelay add delayed task
-func (q *Service) AddDelay(queueName string, config *queue.QueueDelayConfig) error {
-	queueService, ok := q.services[queueName]
+func (q *Service) AddDelay(workerName string, config *QueueDelayConfig) (string, error) {
+	driver, ok := q.drivers[workerName]
 	if !ok {
-		return errors.New("queue not found")
+		return "", errors.New("queue not found")
 	}
 
-	return queueService.Add(queueName, &queue.QueueItem{
-		QueueName:   queueName,
+	id := uuid.New().String()
+	err := driver.Add(workerName, &QueueItem{
+		ID:          id,
+		WorkerName:  workerName,
 		HandlerName: config.HandlerName,
 		Params:      config.Params,
 		CreatedAt:   time.Now().Add(config.Delay),
 		Retried:     0,
 	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
 
 // Names 获取所有工作池名称
@@ -90,51 +105,70 @@ func (q *Service) Names() []string {
 // Start 启动所有工作池
 // Start all worker pools
 func (q *Service) Start() error {
-	for name, worker := range q.workers {
-		serviceName := name // 使用本地变量避免闭包问题
-		go worker.Start(q.ctx, q.services[serviceName], q.handlers)
+	for _, worker := range q.workers {
+		go worker.Start(q.ctx, q.handlers)
+	}
+	return nil
+}
+
+// Stop 停止所有工作池
+// Stop all worker pools
+func (q *Service) Stop() error {
+	for _, worker := range q.workers {
+		worker.Stop()
+	}
+
+	for _, driver := range q.drivers {
+		driver.Close()
 	}
 	return nil
 }
 
 // List 获取队列数据
 // List get queue data
-func (q *Service) List(queueName string, page int, limit int) ([]*queue.QueueItem, error) {
-	queueService, ok := q.services[queueName]
+func (q *Service) List(workerName string, page int, limit int) ([]*QueueItem, error) {
+	worker, ok := q.workers[workerName]
 	if !ok {
-		return nil, errors.New("queue not found")
+		return nil, errors.New("worker not found")
 	}
 
-	return queueService.List(queueName, page, limit), nil
+	return worker.Driver.List(workerName, page, limit), nil
 }
 
 // Count 获取队列数据数量
 // Count get queue data count
-func (q *Service) Count(queueName string) (int, error) {
-	queueService, ok := q.services[queueName]
+func (q *Service) Count(workerName string) (int, error) {
+	worker, ok := q.workers[workerName]
 	if !ok {
-		return 0, errors.New("queue not found")
+		return 0, errors.New("worker not found")
 	}
 
-	return queueService.Count(queueName), nil
+	return worker.Driver.Count(workerName), nil
 }
 
 // Del 删除队列数据
 // Del delete queue data
-func (q *Service) Del(queueName string, id string) error {
-	queueService, ok := q.services[queueName]
+func (q *Service) Del(workerName string, id string) error {
+	worker, ok := q.workers[workerName]
 	if !ok {
-		return errors.New("queue not found")
+		return errors.New("worker not found")
 	}
-	return queueService.Del(queueName, id)
+
+	return worker.Driver.Del(workerName, id)
 }
 
 // GetTotal 获取队列统计
 // GetTotal get queue statistics
-func (q *Service) GetTotal(queueName string) (map[string]any, error) {
-	worker, ok := q.workers[queueName]
+func (q *Service) GetTotal(workerName string) (map[string]any, error) {
+	worker, ok := q.workers[workerName]
 	if !ok {
 		return nil, errors.New("queue not found")
 	}
 	return worker.GetTotal(), nil
+}
+
+// GetWorker 获取工作器
+// GetWorker get worker
+func (q *Service) GetWorker(workerName string) *Worker {
+	return q.workers[workerName]
 }

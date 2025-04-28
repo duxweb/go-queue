@@ -1,38 +1,31 @@
-<h1 align="center">Go-Queue</h1>
-<p align="center">High-performance, Extensible Native Go Queue Framework</p>
+# Go-Queue
 
-<p align="center">
-  <a href="https://pkg.go.dev/github.com/duxweb/go-queue" target="_blank">
-    <img src="https://img.shields.io/github/go-mod/go-version/duxweb/go-queue" alt="Go Version">
-  </a>
-  <a href="https://github.com/duxweb/go-queue/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-  </a>
-  <img src="https://img.shields.io/badge/coverage-90%25-green" alt="Coverage Status">
-</p>
+[![Go Report Card](https://goreportcard.com/badge/github.com/duxweb/go-queue)](https://goreportcard.com/report/github.com/duxweb/go-queue)
+[![GoDoc](https://godoc.org/github.com/duxweb/go-queue?status.svg)](https://godoc.org/github.com/duxweb/go-queue)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 
-<p align="center">
-  <a href="README.md">English</a> |
-  <a href="README.Zh-CN.md">中文</a>
-</p>
+一个高性能、可扩展的Go语言队列库，支持多种队列驱动、任务重试机制和延迟执行。
 
-## About
+A high-performance, extensible queue library for Go, supporting multiple queue drivers, task retry mechanisms, and delayed execution.
 
-Go-Queue is a high-performance, extensible native Go queue framework designed for efficient task processing. Unlike traditional message queues focused on message passing, Go-Queue emphasizes precise task execution control with support for immediate and delayed tasks, concurrent processing, and sophisticated error handling. With a flexible storage backend architecture, it currently offers an optimized memory implementation while planning support for Redis, MySQL, PostgreSQL, and SQLite.
+[English](#english) | [中文](#中文)
 
+<a id="english"></a>
 ## Features
 
-- Support for immediate and delayed tasks
-- Task retry and error handling
-- Parallel processing
-- Thread-safe design
-- High-performance memory queue implementation
-- Extensible storage backends
+- **Multiple Queue Drivers**: Built-in memory queue driver, extensible to add other drivers
+- **Concurrency Control**: Configure the number of workers for each queue
+- **Automatic Retry**: Configurable retry count and retry delay
+- **Delayed Execution**: Schedule tasks to run at a specific time
+- **Timeout Control**: Set maximum execution time for tasks
+- **Statistics**: Track processed tasks, success rates, and processing times
+- **Callbacks**: Custom callbacks for task success and failure events
+- **Graceful Shutdown**: Close queues safely without losing tasks
 
 ## Installation
 
 ```bash
-go get github.com/duxweb/go-queue
+go get -u github.com/duxweb/go-queue
 ```
 
 ## Quick Start
@@ -41,203 +34,260 @@ go get github.com/duxweb/go-queue
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"time"
+    "context"
+    "fmt"
+    "time"
 
-	"github.com/duxweb/go-queue"
-	"github.com/duxweb/go-queue/internal/queue"
-	internalWorker "github.com/duxweb/go-queue/internal/worker"
-	"github.com/duxweb/go-queue/pkg/queue/memory"
-	pkgWorker "github.com/duxweb/go-queue/pkg/worker"
+    goqueue "github.com/duxweb/go-queue"
+    "github.com/duxweb/go-queue/drivers"
 )
 
 func main() {
-	// Create context
-	ctx := context.Background()
+    // Create context
+    ctx := context.Background()
 
-	// Create queue service configuration
-	config := &goqueue.Config{
-		Context: ctx,
-	}
+    // Create queue service config
+    config := &goqueue.Config{
+        Context: ctx,
+    }
 
-	// Create a new queue service instance
-	queueService, err := goqueue.New(config)
-	if err != nil {
-		log.Fatalf("Failed to create queue service: %v", err)
-	}
+    // Create new queue service
+    queueService, _ := goqueue.New(config)
 
-	// Create memory queue instance
-	memQueue := memory.NewMemoryQueue()
+    // Create memory queue instance
+    memQueue := drivers.NewMemoryQueue()
 
-	// Register memory queue service
-	queueService.RegisterService("default", memQueue)
+    // Register queue driver
+    queueService.RegisterDriver("default", memQueue)
 
-	// Create worker configuration
-	workerConfig := &internalWorker.WorkerConfig{
-		ServiceName: "default",
-		Num:         5,                // Number of concurrent workers
-		Interval:    time.Second * 1,  // Polling interval
-		Retry:       3,                // Number of retries
-		RetryDelay:  time.Second * 5,  // Retry delay
-		Timeout:     time.Minute,      // Task timeout
-	}
+    // Configure worker
+    workerConfig := &goqueue.WorkerConfig{
+        ServiceName: "default",
+        Num:         5,                // Concurrent workers
+        Interval:    time.Second * 1,  // Polling interval
+        Retry:       3,                // Retry attempts
+        RetryDelay:  time.Second * 5,  // Delay between retries
+        Timeout:     time.Minute,      // Task timeout
+    }
 
-	// Create worker instance
-	workerInstance := pkgWorker.NewWorker(workerConfig)
+    // Register worker
+    queueService.RegisterWorker("default", workerConfig)
 
-	// Register worker
-	queueService.RegisterWorker("default", workerInstance)
+    // Register task handler
+    queueService.RegisterHandler("example-handler", func(ctx context.Context, params []byte) error {
+        fmt.Printf("Processing task: %s\n", string(params))
+        return nil
+    })
 
-	// Register task handler
-	queueService.RegisterHandler("example-handler", func(ctx context.Context, params []byte) error {
-		fmt.Printf("Processing task: %s\n", string(params))
-		return nil
-	})
+    // Add a task
+    id, _ := queueService.Add("default", &goqueue.QueueConfig{
+        HandlerName: "example-handler",
+        Params:      []byte(`{"message":"This is a test task"}`),
+    })
 
-	// Add task
-	err = queueService.Add("default", &queue.QueueConfig{
-		HandlerName: "example-handler",
-		Params:      []byte(`{"message":"This is a test task"}`),
-	})
-	if err != nil {
-		log.Fatalf("Failed to add task: %v", err)
-	}
+    fmt.Printf("Task added successfully: %s\n", id)
 
-	// Add delayed task
-	err = queueService.AddDelay("default", &queue.QueueDelayConfig{
-		QueueConfig: queue.QueueConfig{
-			HandlerName: "example-handler",
-			Params:      []byte(`{"message":"This is a delayed task"}`),
-		},
-		Delay: time.Second * 5, // Execute after 5 seconds
-	})
-	if err != nil {
-		log.Fatalf("Failed to add delayed task: %v", err)
-	}
+    // Start queue processing
+    queueService.Start()
 
-	// Start queue processing
-	if err := queueService.Start(); err != nil {
-		log.Fatalf("Failed to start queue service: %v", err)
-	}
+    // Wait for tasks to complete
+    time.Sleep(time.Second * 10)
 
-	// Keep the program running
-	select {}
+    // Stop queue service
+    queueService.Stop()
 }
 ```
 
-## Core API Reference
+## Advanced Usage
 
-### Create Queue Service
-
-```go
-// Create context
-ctx := context.Background()
-
-// Create queue service configuration
-config := &goqueue.Config{
-    Context: ctx,
-}
-
-// Create a new queue service instance
-queueService, err := goqueue.New(config)
-```
-
-### Register Services and Workers
+### Delayed Tasks
 
 ```go
-// Register a queue service
-queueService.RegisterService("queue-name", queueServiceImplementation)
-
-// Register a worker
-queueService.RegisterWorker("queue-name", workerInstance)
-
-// Register a task handler
-queueService.RegisterHandler("handler-name", func(ctx context.Context, params []byte) error {
-    // Process the task
-    return nil
-})
-```
-
-### Adding Tasks
-
-```go
-// Add immediate task
-err = queueService.Add("queue-name", &queue.QueueConfig{
-    HandlerName: "handler-name",
-    Params:      []byte(`{"key":"value"}`),
-})
-
-// Add delayed task
-err = queueService.AddDelay("queue-name", &queue.QueueDelayConfig{
-    QueueConfig: queue.QueueConfig{
-        HandlerName: "handler-name",
-        Params:      []byte(`{"key":"value"}`),
+// Add a delayed task (runs after 5 seconds)
+id, _ := queueService.AddDelay("default", &goqueue.QueueDelayConfig{
+    QueueConfig: goqueue.QueueConfig{
+        HandlerName: "example-handler",
+        Params:      []byte(`{"message":"This is a delayed task"}`),
     },
-    Delay: time.Minute * 5, // Execute after 5 minutes
+    Delay: time.Second * 5,
 })
 ```
 
-### Task Management
+### Task Retry
+
+Configure retry behavior:
 
 ```go
-// List tasks (paginated)
-items, err := queueService.List("queue-name", 1, 10)
-
-// Count tasks
-count, err := queueService.Count("queue-name")
-
-// Delete task
-err = queueService.Del("queue-name", "task-id")
-
-// Get queue statistics
-stats, err := queueService.GetTotal("queue-name")
+workerConfig := &goqueue.WorkerConfig{
+    ServiceName: "default",
+    Retry:       3,                // Maximum retry attempts
+    RetryDelay:  time.Second * 2,  // Delay between retries
+}
 ```
 
-### Starting Queue Processing
+### Success and Failure Callbacks
 
 ```go
-// Start all registered workers
-err := queueService.Start()
+workerConfig := &goqueue.WorkerConfig{
+    // ... other configs
+    SuccessFunc: func(item *goqueue.QueueItem) {
+        fmt.Printf("Task executed successfully: %s\n", item.ID)
+    },
+    FailFunc: func(item *goqueue.QueueItem, err error) {
+        fmt.Printf("Task failed: %s, error: %v\n", item.ID, err)
+    },
+}
 ```
 
-## Testing
+## Example Projects
 
-Run all tests:
-```bash
-go test ./...
-```
+Check the `example` directory for complete, runnable examples:
 
-Run benchmark tests:
-```bash
-go test -bench=. ./test/benchmark
-```
-
-## Performance
-
-Benchmark results on Apple M4 processor:
-
-| Operation       | Performance (ns/op) | Operations/second |
-|-----------------|------------|-----------|
-| Add Task    | 325.6 ns/op | ~3,070,000 |
-| Pop Task    | 8.0 ns/op   | ~125,000,000 |
-| Delete Task | 180.0 ns/op | ~5,560,000 |
-| List Tasks  | 5.3 ns/op   | ~188,680,000 |
-| Concurrent Operations | 614.8 ns/op | ~1,630,000 |
-
-## Roadmap
-
-Future implementations planned:
-- Redis queue implementation
-- MySQL queue implementation
-- PostgreSQL queue implementation
-- SQLite queue implementation
-
-## Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/duxweb/go-queue/issues).
+- `basic/` - Basic queue operations
+- `retry/` - Task retry mechanism
+- `multi_queues/` - Multiple parallel queues
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License
+
+<a id="中文"></a>
+## 特性
+
+- **多种队列驱动**: 内置内存队列驱动，可扩展添加其他驱动
+- **并发控制**: 为每个队列配置工作线程数量
+- **自动重试**: 可配置重试次数和重试延迟
+- **延迟执行**: 可以安排任务在指定时间执行
+- **超时控制**: 为任务设置最大执行时间
+- **统计数据**: 跟踪已处理任务、成功率和处理时间
+- **回调函数**: 任务成功和失败事件的自定义回调
+- **优雅关闭**: 安全关闭队列，不丢失任务
+
+## 安装
+
+```bash
+go get -u github.com/duxweb/go-queue
+```
+
+## 快速开始
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+
+    goqueue "github.com/duxweb/go-queue"
+    "github.com/duxweb/go-queue/drivers"
+)
+
+func main() {
+    // 创建上下文
+    ctx := context.Background()
+
+    // 创建队列服务配置
+    config := &goqueue.Config{
+        Context: ctx,
+    }
+
+    // 创建新的队列服务
+    queueService, _ := goqueue.New(config)
+
+    // 创建内存队列实例
+    memQueue := drivers.NewMemoryQueue()
+
+    // 注册队列驱动
+    queueService.RegisterDriver("default", memQueue)
+
+    // 配置工作器
+    workerConfig := &goqueue.WorkerConfig{
+        ServiceName: "default",
+        Num:         5,               // 并发工作数量
+        Interval:    time.Second * 1, // 轮询间隔
+        Retry:       3,               // 重试次数
+        RetryDelay:  time.Second * 5, // 重试间隔
+        Timeout:     time.Minute,     // 任务超时时间
+    }
+
+    // 注册工作器
+    queueService.RegisterWorker("default", workerConfig)
+
+    // 注册任务处理器
+    queueService.RegisterHandler("example-handler", func(ctx context.Context, params []byte) error {
+        fmt.Printf("处理任务: %s\n", string(params))
+        return nil
+    })
+
+    // 添加任务
+    id, _ := queueService.Add("default", &goqueue.QueueConfig{
+        HandlerName: "example-handler",
+        Params:      []byte(`{"message":"这是一个测试任务"}`),
+    })
+
+    fmt.Printf("添加任务成功: %s\n", id)
+
+    // 启动队列处理
+    queueService.Start()
+
+    // 等待任务完成
+    time.Sleep(time.Second * 10)
+
+    // 停止队列服务
+    queueService.Stop()
+}
+```
+
+## 高级用法
+
+### 延迟任务
+
+```go
+// 添加延迟任务（5秒后执行）
+id, _ := queueService.AddDelay("default", &goqueue.QueueDelayConfig{
+    QueueConfig: goqueue.QueueConfig{
+        HandlerName: "example-handler",
+        Params:      []byte(`{"message":"这是一个延迟任务"}`),
+    },
+    Delay: time.Second * 5,
+})
+```
+
+### 任务重试
+
+配置重试行为：
+
+```go
+workerConfig := &goqueue.WorkerConfig{
+    ServiceName: "default",
+    Retry:       3,               // 最大重试次数
+    RetryDelay:  time.Second * 2, // 重试间隔
+}
+```
+
+### 成功和失败回调
+
+```go
+workerConfig := &goqueue.WorkerConfig{
+    // ... 其他配置
+    SuccessFunc: func(item *goqueue.QueueItem) {
+        fmt.Printf("任务执行成功: %s\n", item.ID)
+    },
+    FailFunc: func(item *goqueue.QueueItem, err error) {
+        fmt.Printf("任务执行失败: %s, 错误: %v\n", item.ID, err)
+    },
+}
+```
+
+## 示例项目
+
+查看 `example` 目录以获取完整的、可运行的示例：
+
+- `basic/` - 基本队列操作
+- `retry/` - 任务重试机制
+- `multi_queues/` - 多个并行队列
+
+## 许可证
+
+MIT 许可证

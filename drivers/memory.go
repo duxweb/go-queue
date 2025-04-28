@@ -1,19 +1,17 @@
-package memory
+package drivers
 
 import (
 	"sync"
 	"time"
 
-	"github.com/duxweb/go-queue/internal/queue"
+	"github.com/duxweb/go-queue"
 )
 
 // MemoryQueue 是一个简单的内存队列实现
 // MemoryQueue is a simple in-memory queue implementation
 type MemoryQueue struct {
-	mu     sync.RWMutex
-	queues map[string][]*queue.QueueItem
-	// 为每个队列维护一个ID到索引的映射，加速查找和删除操作
-	// Maintain an ID to index mapping for each queue to speed up lookup and deletion
+	mu      sync.RWMutex
+	queues  map[string][]*queue.QueueItem
 	indices map[string]map[string]int
 }
 
@@ -171,4 +169,10 @@ func (m *MemoryQueue) List(queueName string, page int, limit int) []*queue.Queue
 	}
 
 	return q[start:end]
+}
+
+// Close 关闭队列
+// Close the queue
+func (m *MemoryQueue) Close() error {
+	return nil
 }
