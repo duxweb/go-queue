@@ -19,58 +19,58 @@ func newMockDriver() *mockDriver {
 	}
 }
 
-func (m *mockDriver) Pop(queueName string, num int) []*QueueItem {
-	if len(m.items[queueName]) == 0 {
+func (m *mockDriver) Pop(workerName string, num int) []*QueueItem {
+	if len(m.items[workerName]) == 0 {
 		return []*QueueItem{}
 	}
 
-	result := m.items[queueName][:num]
-	m.items[queueName] = m.items[queueName][num:]
+	result := m.items[workerName][:num]
+	m.items[workerName] = m.items[workerName][num:]
 	return result
 }
 
-func (m *mockDriver) Add(queueName string, item *QueueItem) error {
-	if _, ok := m.items[queueName]; !ok {
-		m.items[queueName] = []*QueueItem{}
+func (m *mockDriver) Add(workerName string, item *QueueItem) error {
+	if _, ok := m.items[workerName]; !ok {
+		m.items[workerName] = []*QueueItem{}
 	}
-	m.items[queueName] = append(m.items[queueName], item)
+	m.items[workerName] = append(m.items[workerName], item)
 	return nil
 }
 
-func (m *mockDriver) Del(queueName string, id string) error {
-	if _, ok := m.items[queueName]; !ok {
+func (m *mockDriver) Del(workerName string, id string) error {
+	if _, ok := m.items[workerName]; !ok {
 		return nil
 	}
 
-	for i, item := range m.items[queueName] {
+	for i, item := range m.items[workerName] {
 		if item.ID == id {
-			m.items[queueName] = append(m.items[queueName][:i], m.items[queueName][i+1:]...)
+			m.items[workerName] = append(m.items[workerName][:i], m.items[workerName][i+1:]...)
 			break
 		}
 	}
 	return nil
 }
 
-func (m *mockDriver) Count(queueName string) int {
-	return len(m.items[queueName])
+func (m *mockDriver) Count(workerName string) int {
+	return len(m.items[workerName])
 }
 
-func (m *mockDriver) List(queueName string, page int, limit int) []*QueueItem {
-	if len(m.items[queueName]) == 0 {
+func (m *mockDriver) List(workerName string, page int, limit int) []*QueueItem {
+	if len(m.items[workerName]) == 0 {
 		return []*QueueItem{}
 	}
 
 	start := (page - 1) * limit
-	if start >= len(m.items[queueName]) {
+	if start >= len(m.items[workerName]) {
 		return []*QueueItem{}
 	}
 
 	end := start + limit
-	if end > len(m.items[queueName]) {
-		end = len(m.items[queueName])
+	if end > len(m.items[workerName]) {
+		end = len(m.items[workerName])
 	}
 
-	return m.items[queueName][start:end]
+	return m.items[workerName][start:end]
 }
 
 func (m *mockDriver) Close() error {
