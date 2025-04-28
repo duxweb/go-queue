@@ -106,8 +106,8 @@ func main() {
 	}
 
 	// Add delayed task
-	err = queueService.AddDelay("default", &internalQueue.QueueDelayConfig{
-		QueueConfig: internalQueue.QueueConfig{
+	err = queueService.AddDelay("default", &queue.QueueDelayConfig{
+		QueueConfig: queue.QueueConfig{
 			HandlerName: "example-handler",
 			Params:      []byte(`{"message":"This is a delayed task"}`),
 		},
@@ -127,62 +127,79 @@ func main() {
 }
 ```
 
-## API Reference
+## Core API Reference
 
-### Memory Queue API
-
-#### Create Memory Queue
+### Create Queue Service
 
 ```go
-memQueue := memory.NewMemoryQueue()
+// Create context
+ctx := context.Background()
+
+// Create queue service configuration
+config := &goqueue.Config{
+    Context: ctx,
+}
+
+// Create a new queue service instance
+queueService, err := goqueue.New(config)
 ```
 
-#### Pop Tasks from Queue
+### Register Services and Workers
 
 ```go
-// Pop up to 10 tasks from the queue
-items := memQueue.Pop("queue-name", 10)
+// Register a queue service
+queueService.RegisterService("queue-name", queueServiceImplementation)
+
+// Register a worker
+queueService.RegisterWorker("queue-name", workerInstance)
+
+// Register a task handler
+queueService.RegisterHandler("handler-name", func(ctx context.Context, params []byte) error {
+    // Process the task
+    return nil
+})
 ```
 
-#### Query Queue Tasks
+### Adding Tasks
 
 ```go
-// Get paginated queue tasks
-items, count, err := queueService.List("queue-name", 1, 10)
+// Add immediate task
+err = queueService.Add("queue-name", &queue.QueueConfig{
+    HandlerName: "handler-name",
+    Params:      []byte(`{"key":"value"}`),
+})
+
+// Add delayed task
+err = queueService.AddDelay("queue-name", &queue.QueueDelayConfig{
+    QueueConfig: queue.QueueConfig{
+        HandlerName: "handler-name",
+        Params:      []byte(`{"key":"value"}`),
+    },
+    Delay: time.Minute * 5, // Execute after 5 minutes
+})
 ```
 
-#### Get Queue Statistics
+### Task Management
 
 ```go
+// List tasks (paginated)
+items, err := queueService.List("queue-name", 1, 10)
+
+// Count tasks
+count, err := queueService.Count("queue-name")
+
+// Delete task
+err = queueService.Del("queue-name", "task-id")
+
 // Get queue statistics
 stats, err := queueService.GetTotal("queue-name")
-if err != nil {
-	log.Fatalf("Failed to get queue statistics: %v", err)
-}
-fmt.Printf("Total processed tasks: %v\n", stats["processed"])
-fmt.Printf("Successful tasks: %v\n", stats["success"])
-fmt.Printf("Failed tasks: %v\n", stats["failed"])
 ```
 
-## Extending the Framework
-
-### Custom Storage Backend
-
-You can create a custom storage backend by implementing the `queue.QueueService` interface:
+### Starting Queue Processing
 
 ```go
-type QueueService interface {
-	// Pop queue data
-	Pop(queueName string, num int) []*QueueItem
-	// Add queue data
-	Add(queueName string, queue *QueueItem) error
-	// Delete queue data
-	Del(queueName string, id string) error
-	// Get queue data count
-	Count(queueName string) int
-	// Get queue list
-	List(queueName string, page int, limit int) []*QueueItem
-}
+// Start all registered workers
+err := queueService.Start()
 ```
 
 ## Testing
@@ -192,19 +209,9 @@ Run all tests:
 go test ./...
 ```
 
-Run verbose tests:
-```bash
-go test -v ./...
-```
-
 Run benchmark tests:
 ```bash
 go test -bench=. ./test/benchmark
-```
-
-Run tests with cache disabled:
-```bash
-go test -count=1 ./...
 ```
 
 ## Performance
@@ -218,12 +225,6 @@ Benchmark results on Apple M4 processor:
 | Delete Task | 180.0 ns/op | ~5,560,000 |
 | List Tasks  | 5.3 ns/op   | ~188,680,000 |
 | Concurrent Operations | 614.8 ns/op | ~1,630,000 |
-
-
-## Notes and Limitations
-
-- Memory queue does not support persistence, tasks in the queue will be lost after program restart
-- For production environments, it is recommended to implement and use a persistent queue storage backend
 
 ## Roadmap
 

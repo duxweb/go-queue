@@ -106,8 +106,8 @@ func main() {
 	}
 
 	// 添加延迟任务
-	err = queueService.AddDelay("default", &internalQueue.QueueDelayConfig{
-		QueueConfig: internalQueue.QueueConfig{
+	err = queueService.AddDelay("default", &queue.QueueDelayConfig{
+		QueueConfig: queue.QueueConfig{
 			HandlerName: "example-handler",
 			Params:      []byte(`{"message":"这是一个延迟任务"}`),
 		},
@@ -127,62 +127,79 @@ func main() {
 }
 ```
 
-## API参考
+## 核心API参考
 
-### 内存队列API
-
-#### 创建内存队列
+### 创建队列服务
 
 ```go
-memQueue := memory.NewMemoryQueue()
+// 创建上下文
+ctx := context.Background()
+
+// 创建队列服务配置
+config := &goqueue.Config{
+    Context: ctx,
+}
+
+// 创建新的队列服务实例
+queueService, err := goqueue.New(config)
 ```
 
-#### 弹出队列中的任务
+### 注册服务和工作器
 
 ```go
-// 从队列中弹出最多10个任务
-items := memQueue.Pop("queue-name", 10)
+// 注册队列服务
+queueService.RegisterService("队列名称", 队列服务实现)
+
+// 注册工作器
+queueService.RegisterWorker("队列名称", 工作器实例)
+
+// 注册任务处理器
+queueService.RegisterHandler("处理器名称", func(ctx context.Context, params []byte) error {
+    // 处理任务
+    return nil
+})
 ```
 
-#### 查询队列任务
+### 添加任务
 
 ```go
-// 分页获取队列任务
-items, count, err := queueService.List("queue-name", 1, 10)
+// 添加即时任务
+err = queueService.Add("队列名称", &queue.QueueConfig{
+    HandlerName: "处理器名称",
+    Params:      []byte(`{"key":"value"}`),
+})
+
+// 添加延迟任务
+err = queueService.AddDelay("队列名称", &queue.QueueDelayConfig{
+    QueueConfig: queue.QueueConfig{
+        HandlerName: "处理器名称",
+        Params:      []byte(`{"key":"value"}`),
+    },
+    Delay: time.Minute * 5, // 5分钟后执行
+})
 ```
 
-#### 获取队列统计
+### 任务管理
 
 ```go
+// 列出任务（分页）
+items, err := queueService.List("队列名称", 1, 10)
+
+// 统计任务数量
+count, err := queueService.Count("队列名称")
+
+// 删除任务
+err = queueService.Del("队列名称", "任务ID")
+
 // 获取队列统计信息
-stats, err := queueService.GetTotal("queue-name")
-if err != nil {
-	log.Fatalf("获取队列统计失败: %v", err)
-}
-fmt.Printf("处理的任务总数: %v\n", stats["processed"])
-fmt.Printf("成功的任务数: %v\n", stats["success"])
-fmt.Printf("失败的任务数: %v\n", stats["failed"])
+stats, err := queueService.GetTotal("队列名称")
 ```
 
-## 扩展框架
-
-### 自定义存储后端
-
-可以通过实现 `queue.QueueService` 接口来创建自定义的存储后端：
+### 启动队列处理
 
 ```go
-type QueueService interface {
-	// 弹出队列数据
-	Pop(queueName string, num int) []*QueueItem
-	// 添加队列数据
-	Add(queueName string, queue *QueueItem) error
-	// 删除队列数据
-	Del(queueName string, id string) error
-	// 获取队列数据数量
-	Count(queueName string) int
-	// 获取队列列表
-	List(queueName string, page int, limit int) []*QueueItem
-}
+// 启动所有已注册的工作器
+err := queueService.Start()
 ```
 
 ## 测试
@@ -192,19 +209,9 @@ type QueueService interface {
 go test ./...
 ```
 
-运行详细测试:
-```bash
-go test -v ./...
-```
-
 运行基准测试:
 ```bash
 go test -bench=. ./test/benchmark
-```
-
-禁用缓存运行测试:
-```bash
-go test -count=1 ./...
 ```
 
 ## 性能
@@ -218,11 +225,6 @@ go test -count=1 ./...
 | 删除任务        | 180.0 ns/op | 约5,560,000 |
 | 列表任务        | 5.3 ns/op   | 约188,680,000 |
 | 并发操作        | 614.8 ns/op | 约1,630,000 |
-
-## 注意事项与限制
-
-- 内存队列不支持持久化，程序重启后队列中的任务将丢失
-- 对于生产环境，建议实现和使用持久化的队列存储后端
 
 ## 路线图
 
