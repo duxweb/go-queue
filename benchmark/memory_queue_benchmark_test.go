@@ -2,143 +2,112 @@ package benchmark
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/duxweb/go-queue"
-	"github.com/duxweb/go-queue/drivers"
+	"github.com/duxweb/go-queue/drivers/memory"
 )
 
-// 测试添加任务的性能
+// prepareQueueItemMemory 准备测试项
+func prepareQueueItemMemory(queueName string, i int) *queue.QueueItem {
+	return &queue.QueueItem{
+		ID:          fmt.Sprintf("item-%d", i),
+		WorkerName:  queueName,
+		HandlerName: "benchmark-handler",
+		Params:      []byte(`{"message":"benchmark task"}`),
+		CreatedAt:   time.Now(),
+		Retried:     0,
+	}
+}
+
+// 使用内存队列的基准测试 - 添加操作
 func BenchmarkMemoryQueueAdd(b *testing.B) {
-	memQueue := drivers.NewMemoryQueue()
+	memQueue := memory.New()
 	queueName := "benchmark-add"
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		item := &queue.QueueItem{
-			ID:          fmt.Sprintf("task-%d", i),
-			WorkerName:  queueName,
-			HandlerName: "benchmark-handler",
-			Params:      []byte(`{"message":"benchmark task"}`),
-			CreatedAt:   time.Now(),
-			Retried:     0,
-		}
+		item := prepareQueueItemMemory(queueName, i)
 		_ = memQueue.Add(queueName, item)
 	}
 }
 
-// 测试弹出任务的性能
+// 使用内存队列的基准测试 - 弹出操作
 func BenchmarkMemoryQueuePop(b *testing.B) {
-	memQueue := drivers.NewMemoryQueue()
+	memQueue := memory.New()
 	queueName := "benchmark-pop"
 
-	// 预先添加一些任务
-	for i := 0; i < 10000; i++ {
-		item := &queue.QueueItem{
-			ID:          fmt.Sprintf("task-%d", i),
-			WorkerName:  queueName,
-			HandlerName: "benchmark-handler",
-			Params:      []byte(`{"message":"benchmark task"}`),
-			CreatedAt:   time.Now(),
-			Retried:     0,
-		}
+	// 预先添加一些项目
+	for i := 0; i < 1000; i++ {
+		item := prepareQueueItemMemory(queueName, i)
 		_ = memQueue.Add(queueName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		memQueue.Pop(queueName, 1)
+		if i%1000 == 0 && i > 0 {
+			// 每1000次操作重新添加项目
+			b.StopTimer()
+			for j := 0; j < 1000; j++ {
+				item := prepareQueueItemMemory(queueName, j)
+				_ = memQueue.Add(queueName, item)
+			}
+			b.StartTimer()
+		}
+		_ = memQueue.Pop(queueName, 1)
 	}
 }
 
-// 测试删除任务的性能
+// 使用内存队列的基准测试 - 删除操作
 func BenchmarkMemoryQueueDel(b *testing.B) {
-	memQueue := drivers.NewMemoryQueue()
+	memQueue := memory.New()
 	queueName := "benchmark-del"
 
-	// 预先添加任务
+	// 预先添加一些项目并存储ID
+	ids := make([]string, b.N)
 	for i := 0; i < b.N; i++ {
-		item := &queue.QueueItem{
-			ID:          fmt.Sprintf("task-%d", i),
-			WorkerName:  queueName,
-			HandlerName: "benchmark-handler",
-			Params:      []byte(`{"message":"benchmark task"}`),
-			CreatedAt:   time.Now(),
-			Retried:     0,
-		}
+		item := prepareQueueItemMemory(queueName, i)
+		ids[i] = item.ID
 		_ = memQueue.Add(queueName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = memQueue.Del(queueName, fmt.Sprintf("task-%d", i))
+		_ = memQueue.Del(queueName, ids[i])
 	}
 }
 
-// 测试列出任务的性能
+// 使用内存队列的基准测试 - 列表操作
 func BenchmarkMemoryQueueList(b *testing.B) {
-	memQueue := drivers.NewMemoryQueue()
+	memQueue := memory.New()
 	queueName := "benchmark-list"
 
-	// 预先添加一些任务
-	for i := 0; i < 10000; i++ {
-		item := &queue.QueueItem{
-			ID:          fmt.Sprintf("task-%d", i),
-			WorkerName:  queueName,
-			HandlerName: "benchmark-handler",
-			Params:      []byte(`{"message":"benchmark task"}`),
-			CreatedAt:   time.Now(),
-			Retried:     0,
-		}
+	// 预先添加一些项目
+	for i := 0; i < 1000; i++ {
+		item := prepareQueueItemMemory(queueName, i)
 		_ = memQueue.Add(queueName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		memQueue.List(queueName, 1, 10)
+		_ = memQueue.List(queueName, 1, 10)
 	}
 }
 
-// 测试并发操作的性能
-func BenchmarkMemoryQueueConcurrent(b *testing.B) {
-	memQueue := drivers.NewMemoryQueue()
-	queueName := "benchmark-concurrent"
+// 使用内存队列的基准测试 - 计数操作
+func BenchmarkMemoryQueueCount(b *testing.B) {
+	memQueue := memory.New()
+	queueName := "benchmark-count"
 
-	// 设置并发数
-	concurrency := 10
+	// 预先添加一些项目
+	for i := 0; i < 1000; i++ {
+		item := prepareQueueItemMemory(queueName, i)
+		_ = memQueue.Add(queueName, item)
+	}
+
 	b.ResetTimer()
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			var wg sync.WaitGroup
-			wg.Add(concurrency)
-
-			for i := 0; i < concurrency; i++ {
-				go func(idx int) {
-					defer wg.Done()
-
-					// 执行添加操作
-					item := &queue.QueueItem{
-						ID:          fmt.Sprintf("task-%d", idx),
-						WorkerName:  queueName,
-						HandlerName: "benchmark-handler",
-						Params:      []byte(`{"message":"concurrent benchmark task"}`),
-						CreatedAt:   time.Now(),
-						Retried:     0,
-					}
-					_ = memQueue.Add(queueName, item)
-
-					// 执行弹出操作
-					_ = memQueue.Pop(queueName, 1)
-
-					// 执行删除操作
-					_ = memQueue.Del(queueName, fmt.Sprintf("task-%d", idx))
-				}(i)
-			}
-
-			wg.Wait()
-		}
-	})
+	for i := 0; i < b.N; i++ {
+		_ = memQueue.Count(queueName)
+	}
 }

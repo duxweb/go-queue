@@ -1,4 +1,4 @@
-package drivers
+package memory
 
 import (
 	"sync"
@@ -15,9 +15,9 @@ type MemoryQueue struct {
 	indices map[string]map[string]int
 }
 
-// NewMemoryQueue 创建一个新的内存队列实例
-// NewMemoryQueue creates a new memory queue instance
-func NewMemoryQueue() *MemoryQueue {
+// New 创建一个新的内存队列实例
+// New creates a new memory queue instance
+func New() *MemoryQueue {
 	return &MemoryQueue{
 		queues:  make(map[string][]*queue.QueueItem),
 		indices: make(map[string]map[string]int),

@@ -70,13 +70,13 @@ func (q *Service) Add(workerName string, config *QueueConfig) (string, error) {
 // AddDelay 添加延迟任务
 // AddDelay add delayed task
 func (q *Service) AddDelay(workerName string, config *QueueDelayConfig) (string, error) {
-	driver, ok := q.drivers[workerName]
+	worker, ok := q.workers[workerName]
 	if !ok {
-		return "", errors.New("queue not found")
+		return "", errors.New("worker not found")
 	}
 
 	id := uuid.New().String()
-	err := driver.Add(workerName, &QueueItem{
+	err := worker.Driver.Add(workerName, &QueueItem{
 		ID:          id,
 		WorkerName:  workerName,
 		HandlerName: config.HandlerName,
@@ -107,6 +107,25 @@ func (q *Service) Names() []string {
 func (q *Service) Start() error {
 	for _, worker := range q.workers {
 		go worker.Start(q.ctx, q.handlers)
+	}
+	return nil
+}
+
+// Pause 暂停所有工作池
+// Pause all worker pools
+func (q *Service) Pause() error {
+	for _, worker := range q.workers {
+		worker.Pause()
+	}
+
+	return nil
+}
+
+// Resume 恢复所有工作池
+// Resume all worker pools
+func (q *Service) Resume() error {
+	for _, worker := range q.workers {
+		worker.Resume()
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	goqueue "github.com/duxweb/go-queue"
-	workerdriver "github.com/duxweb/go-queue/drivers"
+	workerdriver "github.com/duxweb/go-queue/drivers/memory"
 )
 
 func main() {
@@ -26,8 +26,8 @@ func main() {
 	}
 
 	// 创建两个内存队列实例
-	highPriorityQueue := workerdriver.NewMemoryQueue()
-	lowPriorityQueue := workerdriver.NewMemoryQueue()
+	highPriorityQueue := workerdriver.New()
+	lowPriorityQueue := workerdriver.New()
 
 	// 注册队列服务
 	queueService.RegisterDriver("high-priority", highPriorityQueue)

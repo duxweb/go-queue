@@ -7,7 +7,7 @@ import (
 	"time"
 
 	goqueue "github.com/duxweb/go-queue"
-	workerdriver "github.com/duxweb/go-queue/drivers"
+	workerdriver "github.com/duxweb/go-queue/drivers/memory"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// 创建内存队列实例
-	memQueue := workerdriver.NewMemoryQueue()
+	memQueue := workerdriver.New()
 
 	// 注册内存队列服务
 	queueService.RegisterDriver("default", memQueue)
