@@ -26,11 +26,11 @@ func New() *MemoryQueue {
 
 // Pop 从队列中获取并移除指定数量的队列项
 // Pop retrieves and removes the specified number of queue items
-func (m *MemoryQueue) Pop(queueName string, num int) []*queue.QueueItem {
+func (m *MemoryQueue) Pop(workerName string, num int) []*queue.QueueItem {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	q, ok := m.queues[queueName]
+	q, ok := m.queues[workerName]
 	if !ok || len(q) == 0 {
 		return []*queue.QueueItem{}
 	}
@@ -56,7 +56,7 @@ func (m *MemoryQueue) Pop(queueName string, num int) []*queue.QueueItem {
 		if (now.After(item.CreatedAt) || now.Equal(item.CreatedAt)) && len(result) < num {
 			result = append(result, item)
 			// 从索引映射中删除
-			if idx, exists := m.indices[queueName]; exists {
+			if idx, exists := m.indices[workerName]; exists {
 				delete(idx, item.ID)
 			}
 		} else {
@@ -67,46 +67,46 @@ func (m *MemoryQueue) Pop(queueName string, num int) []*queue.QueueItem {
 	}
 
 	// 更新队列和索引
-	m.queues[queueName] = newQueue
-	m.indices[queueName] = idxMap
+	m.queues[workerName] = newQueue
+	m.indices[workerName] = idxMap
 
 	return result
 }
 
 // Add 向队列添加新的队列项
 // Add adds a new queue item to the queue
-func (m *MemoryQueue) Add(queueName string, item *queue.QueueItem) error {
+func (m *MemoryQueue) Add(workerName string, item *queue.QueueItem) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// 确保队列和索引映射存在
-	if _, ok := m.queues[queueName]; !ok {
-		m.queues[queueName] = []*queue.QueueItem{}
-		m.indices[queueName] = make(map[string]int)
+	if _, ok := m.queues[workerName]; !ok {
+		m.queues[workerName] = []*queue.QueueItem{}
+		m.indices[workerName] = make(map[string]int)
 	}
 
 	// 添加到队列
-	m.queues[queueName] = append(m.queues[queueName], item)
+	m.queues[workerName] = append(m.queues[workerName], item)
 
 	// 更新索引映射
-	m.indices[queueName][item.ID] = len(m.queues[queueName]) - 1
+	m.indices[workerName][item.ID] = len(m.queues[workerName]) - 1
 
 	return nil
 }
 
 // Del 从队列中删除指定的队列项
 // Del removes the specified queue item from the queue
-func (m *MemoryQueue) Del(queueName string, id string) error {
+func (m *MemoryQueue) Del(workerName string, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	q, ok := m.queues[queueName]
+	q, ok := m.queues[workerName]
 	if !ok {
 		return nil
 	}
 
 	// 使用索引映射快速查找位置
-	idxMap, ok := m.indices[queueName]
+	idxMap, ok := m.indices[workerName]
 	if !ok {
 		return nil
 	}
@@ -126,7 +126,7 @@ func (m *MemoryQueue) Del(queueName string, id string) error {
 	}
 
 	// 从队列中移除最后一项
-	m.queues[queueName] = q[:len(q)-1]
+	m.queues[workerName] = q[:len(q)-1]
 	// 从索引映射中删除
 	delete(idxMap, id)
 
@@ -135,11 +135,11 @@ func (m *MemoryQueue) Del(queueName string, id string) error {
 
 // Count 获取队列中的项目数量
 // Count gets the number of items in the queue
-func (m *MemoryQueue) Count(queueName string) int {
+func (m *MemoryQueue) Count(workerName string) int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	q, ok := m.queues[queueName]
+	q, ok := m.queues[workerName]
 	if !ok {
 		return 0
 	}
@@ -149,11 +149,11 @@ func (m *MemoryQueue) Count(queueName string) int {
 
 // List 获取分页的队列项列表
 // List gets a paginated list of queue items
-func (m *MemoryQueue) List(queueName string, page int, limit int) []*queue.QueueItem {
+func (m *MemoryQueue) List(workerName string, page int, limit int) []*queue.QueueItem {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	q, ok := m.queues[queueName]
+	q, ok := m.queues[workerName]
 	if !ok || len(q) == 0 {
 		return []*queue.QueueItem{}
 	}

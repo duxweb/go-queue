@@ -11,10 +11,10 @@ import (
 )
 
 // prepareQueueItemBBolt 准备测试项
-func prepareQueueItemBBolt(queueName string, i int) *queue.QueueItem {
+func prepareQueueItemBBolt(workerName string, i int) *queue.QueueItem {
 	return &queue.QueueItem{
 		ID:          fmt.Sprintf("item-%d", i),
-		WorkerName:  queueName,
+		WorkerName:  workerName,
 		HandlerName: "benchmark-handler",
 		Params:      []byte(`{"message":"benchmark task"}`),
 		CreatedAt:   time.Now(),
@@ -33,12 +33,12 @@ func BenchmarkBBoltQueueAdd(b *testing.B) {
 	}
 	defer boltQueue.Close()
 
-	queueName := "benchmark-add"
+	workerName := "benchmark-add"
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		item := prepareQueueItemBBolt(queueName, i)
-		_ = boltQueue.Add(queueName, item)
+		item := prepareQueueItemBBolt(workerName, i)
+		_ = boltQueue.Add(workerName, item)
 	}
 }
 
@@ -53,12 +53,12 @@ func BenchmarkBBoltQueuePop(b *testing.B) {
 	}
 	defer boltQueue.Close()
 
-	queueName := "benchmark-pop"
+	workerName := "benchmark-pop"
 
 	// 预先添加一些项目
 	for i := 0; i < 1000; i++ {
-		item := prepareQueueItemBBolt(queueName, i)
-		_ = boltQueue.Add(queueName, item)
+		item := prepareQueueItemBBolt(workerName, i)
+		_ = boltQueue.Add(workerName, item)
 	}
 
 	b.ResetTimer()
@@ -67,12 +67,12 @@ func BenchmarkBBoltQueuePop(b *testing.B) {
 			// 每1000次操作重新添加项目
 			b.StopTimer()
 			for j := 0; j < 1000; j++ {
-				item := prepareQueueItemBBolt(queueName, j)
-				_ = boltQueue.Add(queueName, item)
+				item := prepareQueueItemBBolt(workerName, j)
+				_ = boltQueue.Add(workerName, item)
 			}
 			b.StartTimer()
 		}
-		_ = boltQueue.Pop(queueName, 1)
+		_ = boltQueue.Pop(workerName, 1)
 	}
 }
 
@@ -87,19 +87,19 @@ func BenchmarkBBoltQueueDel(b *testing.B) {
 	}
 	defer boltQueue.Close()
 
-	queueName := "benchmark-del"
+	workerName := "benchmark-del"
 
 	// 预先添加一些项目并存储ID
 	ids := make([]string, b.N)
 	for i := 0; i < b.N; i++ {
-		item := prepareQueueItemBBolt(queueName, i)
+		item := prepareQueueItemBBolt(workerName, i)
 		ids[i] = item.ID
-		_ = boltQueue.Add(queueName, item)
+		_ = boltQueue.Add(workerName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = boltQueue.Del(queueName, ids[i])
+		_ = boltQueue.Del(workerName, ids[i])
 	}
 }
 
@@ -114,17 +114,17 @@ func BenchmarkBBoltQueueList(b *testing.B) {
 	}
 	defer boltQueue.Close()
 
-	queueName := "benchmark-list"
+	workerName := "benchmark-list"
 
 	// 预先添加一些项目
 	for i := 0; i < 1000; i++ {
-		item := prepareQueueItemBBolt(queueName, i)
-		_ = boltQueue.Add(queueName, item)
+		item := prepareQueueItemBBolt(workerName, i)
+		_ = boltQueue.Add(workerName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = boltQueue.List(queueName, 1, 10)
+		_ = boltQueue.List(workerName, 1, 10)
 	}
 }
 
@@ -139,16 +139,16 @@ func BenchmarkBBoltQueueCount(b *testing.B) {
 	}
 	defer boltQueue.Close()
 
-	queueName := "benchmark-count"
+	workerName := "benchmark-count"
 
 	// 预先添加一些项目
 	for i := 0; i < 1000; i++ {
-		item := prepareQueueItemBBolt(queueName, i)
-		_ = boltQueue.Add(queueName, item)
+		item := prepareQueueItemBBolt(workerName, i)
+		_ = boltQueue.Add(workerName, item)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = boltQueue.Count(queueName)
+		_ = boltQueue.Count(workerName)
 	}
 }
