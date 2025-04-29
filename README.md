@@ -11,49 +11,40 @@ A high-performance, extensible queue library for Go, supporting multiple queue d
 
 ```mermaid
 graph TD
-    Client["客户端/Client"] --> QueueService
+    Client["客户端/Client"] --> QueueService["队列服务/Queue Service"]
 
-    QueueService["队列服务/Queue Service"] --> Worker1
-    QueueService --> Worker2
-    QueueService --> Worker3
+    QueueService --> Worker1["工作器1/Worker1"]
+    QueueService --> Worker2["工作器2/Worker2"]
+    QueueService --> Worker3["工作器3/Worker3"]
 
-    Worker1["工作器1/Worker1"] --> Drivers
-    Worker2["工作器2/Worker2"] --> Drivers
-    Worker3["工作器3/Worker3"] --> Drivers
+    Worker1 --> Memory["内存/Memory"]
+    Worker2 --> Redis["Redis分布式"]
+    Worker3 --> SQLite["SQLite持久化"]
 
-    Drivers["队列驱动/Queue Drivers"] --> Handlers
-
-    Drivers --> Memory["内存/Memory"]
-    Drivers --> Redis["Redis分布式"]
-    Drivers --> SQLite["SQLite持久化"]
-
-    Handlers["任务处理器/Task Handlers"]
-
-    %% 添加步骤标签
-    Client -.->|"1. 添加任务"| QueueService
-    Worker1 -.->|"2. 从内存获取"| Memory
-    Worker2 -.->|"2. 从Redis获取"| Redis
-    Worker3 -.->|"2. 从SQLite获取"| SQLite
-    Drivers -.->|"3. 处理结果"| Handlers
+    Memory --> Handlers["任务处理器/Task Handlers"]
+    Redis --> Handlers
+    SQLite --> Handlers
 
     %% 样式
     classDef service fill:#f9f,stroke:#333,stroke-width:2px
     classDef driver fill:#9cf,stroke:#333,stroke-width:2px
     classDef worker fill:#bfb,stroke:#333,stroke-width:1px
+    classDef storage fill:#fd7,stroke:#333,stroke-width:1px
 
     class QueueService service
-    class Drivers driver
     class Worker1,Worker2,Worker3 worker
+    class Memory,Redis,SQLite storage
 ```
 
 ### 工作流程 / Workflow
 
-1. **添加任务 / Add Task**: 客户端将任务添加到队列服务
-2. **任务分发 / Dispatch Task**: 队列服务将任务分配给不同工作器
-   - 每个工作器可以配置为使用不同的队列驱动
-   - 工作器可以并行处理任务
-3. **驱动处理 / Processing**: 各工作器通过相应的队列驱动处理任务
-4. **执行结果 / Execute**: 任务处理器执行业务逻辑并返回结果
+1. **客户端添加任务**: 客户端将任务添加到队列服务
+2. **队列服务分发任务**: 队列服务将任务分配给不同工作器
+3. **工作器处理任务**:
+   - 工作器1从内存队列获取任务
+   - 工作器2从Redis分布式队列获取任务
+   - 工作器3从SQLite持久化队列获取任务
+4. **任务处理器执行**: 任务处理器执行业务逻辑并返回结果
 
 ### Design Highlights / 设计要点
 
