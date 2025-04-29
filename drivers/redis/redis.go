@@ -114,35 +114,48 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 当前时间戳（毫秒）
 	now := float64(time.Now().UnixNano()) / 1e6
 
-	// 获取准备运行的任务（按分数/时间排序）
 	queueTimeKey := getQueueTimeKey(workerName)
+	queueListKey := getQueueListKey(workerName)
 
-	// 使用 ZRANGEBYSCORE 获取当前可执行的任务（分数/时间 <= 当前时间）
-	ids, err := r.client.ZRangeByScore(ctx, queueTimeKey, &redis.ZRangeBy{
-		Min:    "0",
-		Max:    strconv.FormatFloat(now, 'f', 0, 64),
-		Offset: 0,
-		Count:  int64(num),
-	}).Result()
+	script := `
+		local ids = redis.call('ZRANGEBYSCORE', KEYS[1], '0', ARGV[1], 'LIMIT', 0, ARGV[2])
+		if #ids > 0 then
+			for i, id in ipairs(ids) do
+				redis.call('ZREM', KEYS[1], id)
+				redis.call('SREM', KEYS[2], id)
+			end
+		end
+		return ids
+	`
 
-	if err != nil || len(ids) == 0 {
+	ids, err := r.client.Eval(ctx, script, []string{queueTimeKey, queueListKey},
+		strconv.FormatFloat(now, 'f', 0, 64), num).Result()
+
+	if err != nil || ids == nil {
 		return []*queue.QueueItem{}
 	}
 
-	// 从 Redis 获取这些项目的详细信息并从队列中删除它们
-	pipeline := r.client.Pipeline()
+	// 转换结果
+	idList, ok := ids.([]interface{})
+	if !ok || len(idList) == 0 {
+		return []*queue.QueueItem{}
+	}
 
-	// 准备获取详细信息的命令
-	getCommands := make([]*redis.StringCmd, len(ids))
-	for i, id := range ids {
-		getCommands[i] = pipeline.Get(ctx, getItemKey(id))
-		// 从时间有序集合中移除
-		pipeline.ZRem(ctx, queueTimeKey, id)
-		// 从列表键中移除
-		pipeline.SRem(ctx, getQueueListKey(workerName), id)
+	// 从Redis获取这些项目的详细信息
+	pipeline := r.client.Pipeline()
+	getCommands := make([]*redis.StringCmd, len(idList))
+	delCommands := make([]*redis.IntCmd, len(idList))
+
+	for i, idInterface := range idList {
+		id, ok := idInterface.(string)
+		if !ok {
+			continue
+		}
+		itemKey := getItemKey(id)
+		getCommands[i] = pipeline.Get(ctx, itemKey)
+		delCommands[i] = pipeline.Del(ctx, itemKey)
 	}
 
 	// 执行管道命令
@@ -154,6 +167,10 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 	// 处理结果
 	var items []*queue.QueueItem
 	for _, cmd := range getCommands {
+		if cmd == nil {
+			continue
+		}
+
 		data, err := cmd.Result()
 		if err != nil {
 			continue
@@ -165,9 +182,6 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 		}
 
 		items = append(items, &item)
-
-		// 删除项目
-		r.client.Del(ctx, getItemKey(item.ID))
 	}
 
 	return items
