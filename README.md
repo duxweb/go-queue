@@ -7,6 +7,57 @@
 A high-performance, extensible queue library for Go, supporting multiple queue drivers, task retry mechanisms, and delayed execution.
 一个高性能、可扩展的Go语言队列库，支持多种队列驱动、任务重试机制和延迟执行。
 
+## Framework Architecture / 框架架构
+
+```mermaid
+flowchart TD
+    subgraph "Application / 应用程序"
+    Client["Client Code\n客户端代码"] -- "Add Task\n添加任务" --> Service
+    end
+
+    subgraph "Queue Service / 队列服务"
+    Service["Queue Service\n队列服务"] -- "Register\n注册" --> Workers["Workers\n工作器"]
+    Service -- "Register\n注册" --> Handlers["Task Handlers\n任务处理器"]
+    Service -- "Dispatch\n分发" --> Drivers
+    Workers -- "Process\n处理" --> Tasks["Tasks\n任务"]
+    Tasks -- "Execute\n执行" --> Handlers
+    end
+
+    subgraph "Multiple Drivers / 多种驱动"
+    Drivers["Driver Interface\n驱动接口"] --> Memory["Memory Driver\n内存驱动"]
+    Drivers --> Redis["Redis Driver\n(Distributed / 分布式)"]
+    Drivers --> SQLite["SQLite Driver\n(Persistent / 持久化)"]
+    Drivers --> Custom["Custom Driver\n自定义驱动..."]
+    end
+
+    subgraph "Multi-Worker Processing / 多工作器处理"
+    Memory --- Worker1["Worker 1"] & Worker2["Worker 2"] & Worker3["Worker 3"]
+    Redis --- Worker4["Worker 4"] & Worker5["Worker 5"] & Worker6["Worker 6"]
+    SQLite --- Worker7["Worker 7"] & Worker8["Worker 8"]
+    end
+
+    style Service fill:#f9f,stroke:#333,stroke-width:2px
+    style Drivers fill:#9cf,stroke:#333,stroke-width:2px
+    style Redis fill:#f96,stroke:#333,stroke-width:2px
+```
+
+### Design Highlights / 设计要点
+
+- **Queue Service Core**: Central manager that coordinates drivers, workers, and handlers.
+- **队列服务核心**: 中央管理器，协调驱动、工作器和处理器。
+
+- **Driver Interface**: Common abstraction for different storage backends.
+- **驱动接口**: 为不同存储后端提供统一抽象。
+
+- **Worker Isolation**: Each queue can have multiple isolated workers with independent configuration.
+- **工作器隔离**: 每个队列可以有多个独立配置的隔离工作器。
+
+- **Parallel Processing**: Multiple workers can process tasks concurrently.
+- **并行处理**: 多个工作器可以并发处理任务。
+
+- **Driver Flexibility**: Switch between memory, persistent, or distributed queues without changing application code.
+- **驱动灵活性**: 在不改变应用代码的情况下切换内存、持久化或分布式队列。
+
 ## Features / 特性
 
 - **Multiple Queue Drivers**: Built-in memory queue driver, extensible to add other drivers
