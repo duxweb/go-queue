@@ -10,35 +10,20 @@ A high-performance, extensible queue library for Go, supporting multiple queue d
 ## Framework Architecture / 框架架构
 
 ```mermaid
-flowchart TD
-    subgraph "Application / 应用程序"
-    Client["Client Code\n客户端代码"] -- "Add Task\n添加任务" --> Service
+flowchart LR
+    Client["客户端\nClient"] -->|"1. 添加任务\nAdd Task"| QueueService["队列服务\nQueue Service"]
+    QueueService -->|"2. 任务排队\nQueue Task"| Workers["工作器\nWorkers"]
+    Workers -->|"3. 驱动分发\nDispatch to Driver"| Drivers["队列驱动\nQueue Drivers"]
+    Drivers -->|"4. 处理结果\nProcess Result"| Handlers["任务处理器\nTask Handlers"]
+
+    subgraph "存储后端 / Storage Backends"
+    Drivers --- Memory["内存\nMemory"]
+    Drivers --- Redis["Redis\n分布式"]
+    Drivers --- SQLite["SQLite\n持久化"]
     end
 
-    subgraph "Queue Service / 队列服务"
-    Service["Queue Service\n队列服务"] -- "Register\n注册" --> Workers["Workers\n工作器"]
-    Service -- "Register\n注册" --> Handlers["Task Handlers\n任务处理器"]
-    Service -- "Dispatch\n分发" --> Drivers
-    Workers -- "Process\n处理" --> Tasks["Tasks\n任务"]
-    Tasks -- "Execute\n执行" --> Handlers
-    end
-
-    subgraph "Multiple Drivers / 多种驱动"
-    Drivers["Driver Interface\n驱动接口"] --> Memory["Memory Driver\n内存驱动"]
-    Drivers --> Redis["Redis Driver\n(Distributed / 分布式)"]
-    Drivers --> SQLite["SQLite Driver\n(Persistent / 持久化)"]
-    Drivers --> Custom["Custom Driver\n自定义驱动..."]
-    end
-
-    subgraph "Multi-Worker Processing / 多工作器处理"
-    Memory --- Worker1["Worker 1"] & Worker2["Worker 2"] & Worker3["Worker 3"]
-    Redis --- Worker4["Worker 4"] & Worker5["Worker 5"] & Worker6["Worker 6"]
-    SQLite --- Worker7["Worker 7"] & Worker8["Worker 8"]
-    end
-
-    style Service fill:#f9f,stroke:#333,stroke-width:2px
+    style QueueService fill:#f9f,stroke:#333,stroke-width:2px
     style Drivers fill:#9cf,stroke:#333,stroke-width:2px
-    style Redis fill:#f96,stroke:#333,stroke-width:2px
 ```
 
 ### Design Highlights / 设计要点
