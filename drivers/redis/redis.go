@@ -30,33 +30,29 @@ type RedisQueue struct {
 
 // Options Redis 队列选项
 type Options struct {
-	// Redis 配置
+	Client   *redis.Client
 	Addr     string
 	Password string
 	DB       int
-	// 可选: 使用现有的 Redis 客户端
-	Client *redis.Client
-	// 连接池配置
-	PoolSize     int
-	MinIdleConns int
-	// 命令超时
-	Timeout time.Duration
+	Prefix   string
+	PoolSize int
+	Timeout  time.Duration
 }
 
 // DefaultOptions 返回默认选项
+// DefaultOptions returns default options
 func DefaultOptions() *Options {
 	return &Options{
-		Addr:         "localhost:6379",
-		Password:     "",
-		DB:           0,
-		PoolSize:     10,
-		MinIdleConns: 5,
-		Timeout:      time.Second * 5,
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+		PoolSize: 0,
+		Timeout:  time.Second * 5,
 	}
 }
 
 // New 创建新的 Redis 队列实例
-// opts: Redis 选项，传 nil 则使用默认值
+// New creates a new Redis queue instance
 func New(opts *Options) (*RedisQueue, error) {
 	if opts == nil {
 		opts = DefaultOptions()
@@ -65,20 +61,17 @@ func New(opts *Options) (*RedisQueue, error) {
 	var client *redis.Client
 	ctx := context.Background()
 
-	// 使用提供的客户端或创建新的
 	if opts.Client != nil {
 		client = opts.Client
 	} else {
 		client = redis.NewClient(&redis.Options{
-			Addr:         opts.Addr,
-			Password:     opts.Password,
-			DB:           opts.DB,
-			PoolSize:     opts.PoolSize,
-			MinIdleConns: opts.MinIdleConns,
+			Addr:     opts.Addr,
+			Password: opts.Password,
+			DB:       opts.DB,
+			PoolSize: opts.PoolSize,
 		})
 	}
 
-	// 测试连接
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("无法连接到 Redis: %w", err)
 	}
@@ -91,21 +84,22 @@ func New(opts *Options) (*RedisQueue, error) {
 }
 
 // 获取项目主键
-func getItemKey(itemID string) string {
-	return queueItemPrefix + itemID
+func (r *RedisQueue) getItemKey(itemID string) string {
+	return r.options.Prefix + queueItemPrefix + itemID
 }
 
 // 获取队列时间有序集合键
-func getQueueTimeKey(workerName string) string {
-	return queueTimeSortedSet + workerName
+func (r *RedisQueue) getQueueTimeKey(workerName string) string {
+	return r.options.Prefix + queueTimeSortedSet + workerName
 }
 
 // 获取队列列表键
-func getQueueListKey(workerName string) string {
-	return queueListPrefix + workerName
+func (r *RedisQueue) getQueueListKey(workerName string) string {
+	return r.options.Prefix + queueListPrefix + workerName
 }
 
 // Pop 从队列中弹出指定数量的项
+// Pop pops specified number of items from the queue
 func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 	if num <= 0 {
 		return []*queue.QueueItem{}
@@ -116,8 +110,8 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 
 	now := float64(time.Now().UnixNano()) / 1e6
 
-	queueTimeKey := getQueueTimeKey(workerName)
-	queueListKey := getQueueListKey(workerName)
+	queueTimeKey := r.getQueueTimeKey(workerName)
+	queueListKey := r.getQueueListKey(workerName)
 
 	script := `
 		local ids = redis.call('ZRANGEBYSCORE', KEYS[1], '0', ARGV[1], 'LIMIT', 0, ARGV[2])
@@ -137,13 +131,11 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 		return []*queue.QueueItem{}
 	}
 
-	// 转换结果
 	idList, ok := ids.([]interface{})
 	if !ok || len(idList) == 0 {
 		return []*queue.QueueItem{}
 	}
 
-	// 从Redis获取这些项目的详细信息
 	pipeline := r.client.Pipeline()
 	getCommands := make([]*redis.StringCmd, len(idList))
 	delCommands := make([]*redis.IntCmd, len(idList))
@@ -153,18 +145,16 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 		if !ok {
 			continue
 		}
-		itemKey := getItemKey(id)
+		itemKey := r.getItemKey(id)
 		getCommands[i] = pipeline.Get(ctx, itemKey)
 		delCommands[i] = pipeline.Del(ctx, itemKey)
 	}
 
-	// 执行管道命令
 	_, err = pipeline.Exec(ctx)
 	if err != nil {
 		return []*queue.QueueItem{}
 	}
 
-	// 处理结果
 	var items []*queue.QueueItem
 	for _, cmd := range getCommands {
 		if cmd == nil {
@@ -188,65 +178,58 @@ func (r *RedisQueue) Pop(workerName string, num int) []*queue.QueueItem {
 }
 
 // Add 添加队列项
+// Add adds an item to the queue
 func (r *RedisQueue) Add(workerName string, item *queue.QueueItem) error {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 序列化队列项
 	data, err := json.Marshal(item)
 	if err != nil {
 		return fmt.Errorf("序列化队列项失败: %w", err)
 	}
 
-	// 运行时间的时间戳（毫秒）
 	runTime := float64(item.RunAt.UnixNano()) / 1e6
 
-	// 使用管道进行原子操作
 	pipeline := r.client.Pipeline()
 
-	// 存储队列项
-	pipeline.Set(ctx, getItemKey(item.ID), data, 0)
+	pipeline.Set(ctx, r.getItemKey(item.ID), data, 0)
 
-	// 添加到时间有序集合
-	pipeline.ZAdd(ctx, getQueueTimeKey(workerName), redis.Z{
+	pipeline.ZAdd(ctx, r.getQueueTimeKey(workerName), redis.Z{
 		Score:  runTime,
 		Member: item.ID,
 	})
 
-	// 添加到队列列表（用于计数和列表操作）
-	pipeline.SAdd(ctx, getQueueListKey(workerName), item.ID)
+	pipeline.SAdd(ctx, r.getQueueListKey(workerName), item.ID)
 
 	_, err = pipeline.Exec(ctx)
 	return err
 }
 
 // Del 从队列中删除指定的项
+// Del removes the specified item from the queue
 func (r *RedisQueue) Del(workerName string, id string) error {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 使用管道进行原子操作
 	pipeline := r.client.Pipeline()
 
-	// 从时间有序集合中删除
-	pipeline.ZRem(ctx, getQueueTimeKey(workerName), id)
+	pipeline.ZRem(ctx, r.getQueueTimeKey(workerName), id)
 
-	// 从队列列表中删除
-	pipeline.SRem(ctx, getQueueListKey(workerName), id)
+	pipeline.SRem(ctx, r.getQueueListKey(workerName), id)
 
-	// 删除队列项
-	pipeline.Del(ctx, getItemKey(id))
+	pipeline.Del(ctx, r.getItemKey(id))
 
 	_, err := pipeline.Exec(ctx)
 	return err
 }
 
 // Count 获取队列中的项目数量
+// Count gets the number of items in the queue
 func (r *RedisQueue) Count(workerName string) int {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	count, err := r.client.SCard(ctx, getQueueListKey(workerName)).Result()
+	count, err := r.client.SCard(ctx, r.getQueueListKey(workerName)).Result()
 	if err != nil {
 		return 0
 	}
@@ -255,6 +238,7 @@ func (r *RedisQueue) Count(workerName string) int {
 }
 
 // List 获取分页的队列项列表
+// List gets a paginated list of queue items
 func (r *RedisQueue) List(workerName string, page int, limit int) []*queue.QueueItem {
 	if page <= 0 {
 		page = 1
@@ -266,13 +250,11 @@ func (r *RedisQueue) List(workerName string, page int, limit int) []*queue.Queue
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 获取所有 ID
-	ids, err := r.client.SMembers(ctx, getQueueListKey(workerName)).Result()
+	ids, err := r.client.SMembers(ctx, r.getQueueListKey(workerName)).Result()
 	if err != nil || len(ids) == 0 {
 		return []*queue.QueueItem{}
 	}
 
-	// 排序和分页
 	start := (page - 1) * limit
 	end := start + limit
 	if start >= len(ids) {
@@ -282,12 +264,11 @@ func (r *RedisQueue) List(workerName string, page int, limit int) []*queue.Queue
 		end = len(ids)
 	}
 
-	// 根据 ID 获取队列项
 	pipeline := r.client.Pipeline()
 	getCommands := make([]*redis.StringCmd, 0, end-start)
 	for i := start; i < end; i++ {
 		if i < len(ids) {
-			getCommands = append(getCommands, pipeline.Get(ctx, getItemKey(ids[i])))
+			getCommands = append(getCommands, pipeline.Get(ctx, r.getItemKey(ids[i])))
 		}
 	}
 
@@ -296,7 +277,6 @@ func (r *RedisQueue) List(workerName string, page int, limit int) []*queue.Queue
 		return []*queue.QueueItem{}
 	}
 
-	// 处理结果
 	var items []*queue.QueueItem
 	for _, cmd := range getCommands {
 		data, err := cmd.Result()
@@ -316,11 +296,13 @@ func (r *RedisQueue) List(workerName string, page int, limit int) []*queue.Queue
 }
 
 // Close 关闭队列
+// Close closes the queue
 func (r *RedisQueue) Close() error {
 	return r.client.Close()
 }
 
 // WithClient 使用现有的 Redis 客户端
+// WithClient uses an existing Redis client
 func WithClient(client *redis.Client) *Options {
 	opts := DefaultOptions()
 	opts.Client = client
@@ -328,28 +310,24 @@ func WithClient(client *redis.Client) *Options {
 }
 
 // CleanupQueue 清理队列（仅用于测试/管理）
+// CleanupQueue cleans up the queue (for testing/management only)
 func (r *RedisQueue) CleanupQueue(workerName string) error {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 获取所有项目 ID
-	ids, err := r.client.SMembers(ctx, getQueueListKey(workerName)).Result()
+	ids, err := r.client.SMembers(ctx, r.getQueueListKey(workerName)).Result()
 	if err != nil {
 		return err
 	}
 
-	// 使用管道批量删除
 	pipeline := r.client.Pipeline()
 
-	// 删除队列列表
-	pipeline.Del(ctx, getQueueListKey(workerName))
+	pipeline.Del(ctx, r.getQueueListKey(workerName))
 
-	// 删除时间有序集合
-	pipeline.Del(ctx, getQueueTimeKey(workerName))
+	pipeline.Del(ctx, r.getQueueTimeKey(workerName))
 
-	// 删除所有队列项
 	for _, id := range ids {
-		pipeline.Del(ctx, getItemKey(id))
+		pipeline.Del(ctx, r.getItemKey(id))
 	}
 
 	_, err = pipeline.Exec(ctx)
@@ -357,12 +335,12 @@ func (r *RedisQueue) CleanupQueue(workerName string) error {
 }
 
 // FlushAll 清空所有队列数据（仅用于测试/管理）
+// FlushAll flushes all queue data (for testing/management only)
 func (r *RedisQueue) FlushAll() error {
 	ctx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
 	defer cancel()
 
-	// 获取所有以 "queue:" 开头的键
-	keys, err := r.client.Keys(ctx, "queue:*").Result()
+	keys, err := r.client.Keys(ctx, r.options.Prefix+"queue:*").Result()
 	if err != nil {
 		return err
 	}

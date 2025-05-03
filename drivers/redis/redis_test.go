@@ -244,6 +244,5 @@ func TestRedisQueueOptions(t *testing.T) {
 	assert.Equal(t, "", opts.Password)
 	assert.Equal(t, 0, opts.DB)
 	assert.Equal(t, 10, opts.PoolSize)
-	assert.Equal(t, 5, opts.MinIdleConns)
 	assert.Equal(t, time.Second*5, opts.Timeout)
 }
